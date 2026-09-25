@@ -148,6 +148,12 @@ function cardHtml(t) {
     </button>`;
 }
 
+function sentinelVisible() {
+  const more = $("more");
+  if (!more || more.hidden) return false;
+  return more.getBoundingClientRect().top <= window.innerHeight + 120;
+}
+
 function renderFooter() {
   const more = $("more");
   if (!state.tracks.length) {
@@ -156,7 +162,7 @@ function renderFooter() {
   }
   more.hidden = false;
   more.textContent = state.hasMore
-    ? `${state.tracks.length} / ${state.total} · aşağı kaydır`
+    ? `${state.tracks.length} / ${state.total} · devamını yükle`
     : `${state.tracks.length} / ${state.total}`;
 }
 
@@ -220,10 +226,35 @@ function renderDrawer() {
   `;
 }
 
+function syncBackdrop() {
+  $("backdrop").hidden = $("drawer").hidden && $("cvSheet").hidden && $("composeSheet").hidden;
+}
+
 function setDrawer(open) {
   $("drawer").hidden = !open;
-  $("backdrop").hidden = !open;
   $("drawer").setAttribute("aria-hidden", open ? "false" : "true");
+  syncBackdrop();
+}
+
+function setCompose(open) {
+  const sheet = $("composeSheet");
+  sheet.hidden = !open;
+  sheet.setAttribute("aria-hidden", open ? "false" : "true");
+  syncBackdrop();
+}
+
+function setPreview(open) {
+  const sheet = $("cvSheet");
+  const frame = $("cvFrame");
+  sheet.hidden = !open;
+  sheet.setAttribute("aria-hidden", open ? "false" : "true");
+  if (open) {
+    $("cvSheetTitle").textContent = state.cv?.filename || "CV";
+    frame.src = `/api/cv/file?inline=1&t=${Date.now()}`;
+  } else {
+    frame.removeAttribute("src");
+  }
+  syncBackdrop();
 }
 
 async function loadDetail(id) {
@@ -244,6 +275,7 @@ async function loadPage({ reset = false } = {}) {
     state.hasMore = true;
     renderList();
   }
+  let added = 0;
   const params = new URLSearchParams({
     paged: "1",
     limit: String(PAGE),
@@ -260,9 +292,12 @@ async function loadPage({ reset = false } = {}) {
     state.total = data.total;
     if (reset) {
       state.tracks = data.items;
+      added = data.items.length;
     } else {
       const seen = new Set(state.tracks.map((t) => t.id));
-      state.tracks.push(...data.items.filter((t) => !seen.has(t.id)));
+      const fresh = data.items.filter((t) => !seen.has(t.id));
+      state.tracks.push(...fresh);
+      added = fresh.length;
     }
     state.hasMore = data.hasMore;
     renderStats();
@@ -270,6 +305,9 @@ async function loadPage({ reset = false } = {}) {
   } finally {
     state.loading = false;
     renderFooter();
+  }
+  if (added > 0 && state.hasMore && sentinelVisible()) {
+    loadPage().catch(() => {});
   }
 }
 
@@ -380,15 +418,12 @@ $("search").addEventListener("input", (e) => {
 });
 
 const moreEl = $("more");
-const scroller = new IntersectionObserver(
-  (entries) => {
-    if (entries.some((e) => e.isIntersecting)) {
-      loadPage().catch(() => {});
-    }
-  },
-  { rootMargin: "240px" }
-);
-scroller.observe(moreEl);
+moreEl.addEventListener("click", () => {
+  if (state.hasMore) loadPage().catch(() => toast("Liste alınamadı"));
+});
+window.addEventListener("scroll", () => {
+  if (sentinelVisible()) loadPage().catch(() => {});
+}, { passive: true });
 
 $("list").addEventListener("click", (e) => {
   const row = e.target.closest("[data-id]");
@@ -400,7 +435,12 @@ $("closeDrawer").addEventListener("click", () => {
   state.detail = null;
   setDrawer(false);
 });
-$("backdrop").addEventListener("click", () => $("closeDrawer").click());
+$("backdrop").addEventListener("click", () => {
+  if (!$("composeSheet").hidden) setCompose(false);
+  if (!$("cvSheet").hidden) setPreview(false);
+  if (!$("drawer").hidden) $("closeDrawer").click();
+});
+$("closePreview").addEventListener("click", () => setPreview(false));
 
 $("drawer").addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-copy]");
@@ -438,7 +478,58 @@ $("cvFile").addEventListener("change", async (e) => {
   toast("CV kaydedildi");
 });
 
-$("cvPreview").addEventListener("click", () => window.open("/api/cv/file", "_blank"));
+$("cvPreview").addEventListener("click", () => setPreview(true));
+
+$("openCompose").addEventListener("click", () => setCompose(true));
+$("closeCompose").addEventListener("click", () => setCompose(false));
+
+function parseRecipients(raw) {
+  return [...new Set(
+    String(raw || "")
+      .split(/[\s,;]+/)
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(part))
+  )];
+}
+
+$("composeForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const button = e.target.querySelector("button[type=submit]");
+  const recipients = parseRecipients($("composeTo").value);
+  if (!recipients.length) {
+    toast("Geçerli bir e-posta yaz");
+    return;
+  }
+  const subject = $("composeSubject").value.trim();
+  const text = $("composeBody").value.trim();
+  button.disabled = true;
+  const failed = [];
+  try {
+    for (const toEmail of recipients) {
+      const res = await api("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toEmail, subject, text, source: "panel" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        failed.push(`${toEmail}: ${data.error || "gönderilemedi"}`);
+      }
+    }
+    if (failed.length === recipients.length) {
+      toast(failed[0]);
+      return;
+    }
+    toast(failed.length ? `${recipients.length - failed.length} gitti, ${failed.length} kaldı` : "Gönderildi");
+    setCompose(false);
+    e.target.reset();
+    await loadPage({ reset: true });
+  } catch (err) {
+    toast(err.message || "Gönderilemedi");
+  } finally {
+    button.disabled = false;
+  }
+});
 
 $("cvRemove").addEventListener("click", async () => {
   if (!confirm("Aktif CV kaldırılsın mı?")) return;

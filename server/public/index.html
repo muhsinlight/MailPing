@@ -4,12 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
-  <link rel="stylesheet" href="/panel.css?v=auth1" />
+  <link rel="icon" href="/logo.png" />
+  <link rel="stylesheet" href="/panel.css?v=compose1" />
 </head>
 <body>
   <div class="wrap">
     <header class="bar">
-      <span class="mark">MailPing</span>
+      <span class="mark"><img src="/logo.png" alt="" width="28" height="28" />MailPing</span>
       <div class="actions">
         <button class="pulse" id="pulse" type="button">Canlı</button>
         <button class="btn" id="copyToken" type="button">Eklenti token</button>
@@ -22,6 +23,7 @@
         <p class="kicker">Takip kutusu</p>
         <h1>Mail açıldı mı,<br>CV indirildi mi.</h1>
         <p class="lede">Gmail bağla, gönderilenler bu kutuya düşer. Yeni maillerde açıldı ve CV takibi çalışır.</p>
+        <button id="openCompose" class="btn solid compose-open" type="button">Mail gönder</button>
       </article>
 
       <article class="tile stat dark" id="statOpen">
@@ -110,7 +112,32 @@
     <button id="closeDrawer" class="icon" type="button" aria-label="Kapat">Kapat</button>
     <div id="drawerBody"></div>
   </aside>
+  <aside id="composeSheet" class="sheet compose" hidden aria-hidden="true">
+    <button id="closeCompose" class="icon" type="button" aria-label="Kapat">Kapat</button>
+    <h2>Mail gönder</h2>
+    <p class="lede">Birden fazla adresi virgülle ayır. Her biri ayrı sayılır. CV yüklüyse link de gider.</p>
+    <form id="composeForm">
+      <label>
+        Kime
+        <textarea id="composeTo" name="to" required placeholder="ik@firma.com, hr@startup.io"></textarea>
+      </label>
+      <label>
+        Konu
+        <input id="composeSubject" name="subject" required />
+      </label>
+      <label>
+        Mesaj
+        <textarea id="composeBody" name="body" required></textarea>
+      </label>
+      <button class="btn solid" type="submit">Gönder</button>
+    </form>
+  </aside>
+  <aside id="cvSheet" class="sheet preview" hidden aria-hidden="true">
+    <button id="closePreview" class="icon" type="button" aria-label="Kapat">Kapat</button>
+    <h2 id="cvSheetTitle">CV</h2>
+    <iframe id="cvFrame" title="CV önizleme"></iframe>
+  </aside>
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=opens1"></script>
+  <script src="/panel.js?v=scroll1"></script>
 </body>
 </html>

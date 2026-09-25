@@ -143,13 +143,15 @@ app.get("/api/cv", (_req, res) => {
   res.json({ cv: getCvMeta() });
 });
 
-app.get("/api/cv/file", (_req, res) => {
+app.get("/api/cv/file", (req, res) => {
   const file = readCv();
   if (!file) return res.status(404).json({ error: "CV yüklenmemiş" });
+  const inline = req.query.inline === "1";
   res.set({
     "Content-Type": "application/pdf",
-    "Content-Disposition": contentDisposition(file.filename),
+    "Content-Disposition": contentDisposition(file.filename, inline),
     "Cache-Control": "no-store",
+    "X-Frame-Options": "SAMEORIGIN",
   });
   res.send(file.buffer);
 });

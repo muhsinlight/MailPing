@@ -49,9 +49,10 @@ export function removeCv() {
   deleteSetting("cv_uploaded_at");
 }
 
-export function contentDisposition(filename) {
+export function contentDisposition(filename, inline = false) {
   const ascii = filename.replace(/[^\x20-\x7E]/g, "_") || "cv.pdf";
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+  const kind = inline ? "inline" : "attachment";
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }
 
 export function renderCvLanding({ track, cv }) {
