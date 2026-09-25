@@ -1,0 +1,13 @@
+.mailtracker-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+  font-weight: 700;
+  font-size: 0.78em;
+  letter-spacing: 0;
+}
+.mailtracker-badge .mt-open { color: #00ba7c; }
+.mailtracker-badge .mt-wait { color: #9aa0a6; }
+.mailtracker-badge .mt-cv { color: #5b8def; }

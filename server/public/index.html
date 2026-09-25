@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MailPing</title>
+  <link rel="stylesheet" href="/panel.css?v=auth1" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="bar">
+      <span class="mark">MailPing</span>
+      <div class="actions">
+        <button class="pulse" id="pulse" type="button">Canlı</button>
+        <button class="btn" id="copyToken" type="button">Eklenti token</button>
+        <button class="btn" id="logout" type="button">Çıkış</button>
+      </div>
+    </header>
+
+    <section class="bento">
+      <article class="tile hero">
+        <p class="kicker">Takip kutusu</p>
+        <h1>Mail açıldı mı,<br>CV indirildi mi.</h1>
+        <p class="lede">Gmail bağla, gönderilenler bu kutuya düşer. Yeni maillerde açıldı ve CV takibi çalışır.</p>
+      </article>
+
+      <article class="tile stat dark" id="statOpen">
+        <b>0</b>
+        <span>Mail açıldı</span>
+      </article>
+      <article class="tile stat" id="statWait">
+        <b>0</b>
+        <span>Mail bakılmadı</span>
+      </article>
+      <article class="tile stat" id="statCv">
+        <b>0</b>
+        <span>CV indirildi</span>
+      </article>
+      <article class="tile stat" id="statAll">
+        <b>0</b>
+        <span>Toplam gönderim</span>
+      </article>
+
+      <article class="tile connect" id="gmailCard">
+        <div>
+          <p class="kicker">Gmail</p>
+          <h2 id="gmailTitle">Bağlı değil</h2>
+          <p id="gmailHint" class="lede">Hesabı bağlayınca gönderilenler buraya gelir. Eski maillerde açıldı takibi olmaz.</p>
+        </div>
+        <div class="actions">
+          <a id="gmailOAuth" class="btn solid" href="/api/gmail/connect" hidden>Google ile bağla</a>
+          <button id="gmailSync" class="btn solid" type="button">Gönderilenleri çek</button>
+          <button id="gmailDisconnect" class="btn danger" type="button" hidden>Kopar</button>
+        </div>
+      </article>
+
+      <article class="tile cv" id="cvCard">
+        <div>
+          <p class="kicker">Aktif CV</p>
+          <h2 id="cvName">Yüklenmedi</h2>
+          <p id="cvHint" class="lede">PDF yükle, sonraki maillere indirme linki eklenir.</p>
+        </div>
+        <div class="actions">
+          <label class="btn solid">
+            PDF yükle
+            <input id="cvFile" type="file" accept="application/pdf,.pdf" hidden />
+          </label>
+          <button id="cvPreview" class="btn" type="button" hidden>Önizle</button>
+          <button id="cvRemove" class="btn danger" type="button" hidden>Kaldır</button>
+        </div>
+      </article>
+
+      <article class="tile board">
+        <div class="filter-bar">
+          <label>
+            Kim
+            <select id="kind">
+              <option value="apps" selected>Başvurular — şirket, İK, staj…</option>
+              <option value="sirket">Şirket (info@, firma.com)</option>
+              <option value="ik">İK / HR</option>
+              <option value="staj">Staj</option>
+              <option value="kariyer">Kariyer</option>
+              <option value="basvuru">İlan / pozisyon</option>
+              <option value="other">Diğer / gürültü</option>
+              <option value="all">Tümü</option>
+            </select>
+          </label>
+          <label>
+            Durum
+            <select id="status">
+              <option value="" selected>Hepsi</option>
+              <option value="opened">Mail açıldı</option>
+              <option value="waiting">Açılmadı</option>
+              <option value="cv">CV indirildi</option>
+            </select>
+          </label>
+          <label class="grow">
+            Ara
+            <input id="search" type="search" placeholder="firma, ik@, konu…" />
+          </label>
+        </div>
+        <div id="list" class="cards"></div>
+        <div id="more" class="more" hidden>Daha fazla</div>
+      </article>
+    </section>
+  </div>
+
+  <div id="backdrop" class="backdrop" hidden></div>
+  <aside id="drawer" class="sheet" hidden aria-hidden="true">
+    <button id="closeDrawer" class="icon" type="button" aria-label="Kapat">Kapat</button>
+    <div id="drawerBody"></div>
+  </aside>
+  <div id="toast" class="toast" hidden></div>
+  <script src="/panel.js?v=auth1"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>MailTracker Ayarlar</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 520px; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    #status { margin-top: 1rem; color: #0a0; }
+    .hint { font-size: 0.85rem; color: #555; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>MailTracker ayarları</h1>
+  <label for="serverUrl">Sunucu adresi (PUBLIC_BASE_URL ile aynı)</label>
+  <input id="serverUrl" type="url" placeholder="https://tracker.sizin-domain.com" />
+  <label for="apiToken">API token (panel → Eklenti token)</label>
+  <input id="apiToken" type="password" autocomplete="off" placeholder="VPS kilidindeki token" />
+  <p class="hint">
+    Chrome açıkken mail açılınca veya CV inince masaüstü bildirimi düşer (Windows Action Center, Mac Bildirim Merkezi). Sistem ayarlarında Chrome bildirimleri açık olsun.
+  </p>
+  <p class="hint">
+    VPS’te panel şifre ister; eklenti bu token ile konuşur. Piksel ve CV indirme linki alıcıya açıktır.
+  </p>
+  <button id="save">Kaydet</button>
+  <p id="status"></p>
+  <script src="options.js"></script>
+</body>
+</html>

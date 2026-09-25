@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "MailTracker (Self-Hosted)",
+  "version": "1.4.0",
+  "description": "Gmail / Outlook maillerinde okundu ve CV indirme takibi — kendi sunucunuz.",
+  "permissions": ["storage", "notifications", "alarms"],
+  "host_permissions": [
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://outlook.office.com/*",
+    "https://outlook.office365.com/*",
+    "http://localhost:3847/*",
+    "http://127.0.0.1:3847/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["tracking-core.js", "provider-gmail.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://outlook.live.com/*",
+        "https://outlook.office.com/*",
+        "https://outlook.office365.com/*"
+      ],
+      "js": ["tracking-core.js", "provider-outlook.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

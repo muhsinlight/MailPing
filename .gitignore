@@ -1,0 +1,20 @@
+# Bağımlılık
+node_modules/
+
+# Gizli / yerel veri — GitHub'a gitmez
+.env
+.env.*
+!.env.example
+!server/.env.example
+server/.env
+server/data/
+secrets.json
+*.db
+*.pdf
+*.pem
+*.key
+
+# Sistem
+.DS_Store
+Thumbs.db
+*.log
