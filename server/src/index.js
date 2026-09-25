@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { classifyMail } from "./classify.js";
+import { cvComposeError, mentionsCv } from "./compose-rules.js";
 import {
   ALLOWED_IPS,
   BIND_HOST,
@@ -266,6 +267,12 @@ app.post("/api/send", async (req, res) => {
   try {
     const body = requireToEmail(req, res);
     if (!body) return;
+    if (Boolean(body.includeCv)) {
+      return res.status(400).json({ error: cvComposeError() });
+    }
+    if (mentionsCv(body.subject, body.text, body.html)) {
+      return res.status(400).json({ error: cvComposeError() });
+    }
     const { track } = await sendTrackedEmail({
       toEmail: body.toEmail,
       subject: body.subject,
@@ -273,7 +280,7 @@ app.post("/api/send", async (req, res) => {
       html: body.html,
       fromEmail: body.fromEmail,
       source: body.source ?? "smtp",
-      includeCv: Boolean(body.includeCv),
+      includeCv: false,
     });
     res.status(201).json(toPublicTrack(track, { sent: true }));
   } catch (err) {

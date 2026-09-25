@@ -1,8 +1,8 @@
 # MailPing
 
-Kendi sunucunuzda çalışan mail + CV takip paneli. Alıcı maili açınca ve CV’yi indirince kayıt düşer; isterseniz **Windows / Mac masaüstü bildirimi** gelir.
+Kendi sunucunuzda çalışan **mail açıldı mı** takip paneli. CV’li ilk başvuruyu Gmail’den gönderirsiniz; kısa hatırlatma / takip mailini panelden atarsınız (görünmez piksel). İsterseniz **Windows / Mac masaüstü bildirimi** gelir.
 
-Panel kilitlidir: VPS’e koysanız da CV, mailler ve Gmail başkasının eline geçmez. Alıcıya giden piksel ve CV indirme linki bilinçli olarak açıktır (okundu takibi bununla çalışır).
+Panel kilitlidir: VPS’e koysanız da mailler ve Gmail başkasının eline geçmez. Alıcıya giden okundu pikseli bilinçli olarak açıktır.
 
 Panel: `http://localhost:3847/` → şifre ister.
 
@@ -10,31 +10,29 @@ Panel: `http://localhost:3847/` → şifre ister.
 
 | Özellik | Açıklama |
 |--------|----------|
-| **Mail açıldı** | HTML maile görünmez piksel eklenir. Alıcı görseli yükleyince sayılır (kaç kez, ilk/son). |
-| **CV indirildi** | Panele PDF yüklersiniz; maile tekil link eklenir. İndirme ayrı sayılır. |
-| **Gmail çek** | Gönderilenleri panele alır (IMAP veya Google OAuth). Eski maillerde açıldı takibi yoktur. |
+| **Mail açıldı** | Panelden giden takip mailine görünmez piksel eklenir. Alıcı görseli yükleyince sayılır. |
+| **Gmail çek** | Gönderilenleri panele alır (IMAP veya Google OAuth). Bu maillerde açıldı takibi yoktur (CV Gmail ekiyle gider). |
+| **Takip maili** | Panelden kısa hatırlatma; metinde CV / özgeçmiş geçerse gönderim engellenir. |
 | **Başvuru filtresi** | Tek kutu: tür (şirket / İK / staj…) + durum + arama. `info@firma.com` de başvurudur. |
 | **Sayfalama** | İlk 24 kayıt; aşağı kaydırınca devamı. |
-| **Canlı sinyal** | Chrome eklentisi veya açık panel: mail açılınca / CV inince sistem bildirimi. |
+| **Canlı sinyal** | Açık panel: takip maili açılınca sistem bildirimi. |
 | **Gmail / Outlook rozeti** | Gönderilenler listesinde açıldı / CV durumu. |
 
 **Desteklenen gönderim**
 
 | Kaynak | Nasıl |
 |--------|--------|
-| **Gmail Web** | Chrome eklentisi — Gönder’de piksel (+ CV linki) |
-| **Outlook Web** | Aynı eklenti |
-| **Panel** | **Mail gönder** — oturum çerezi ile `POST /api/send` |
+| **Gmail** | İlk başvuru + CV eki (panel bunu göndermez) |
+| **Panel** | **Takip maili** — oturum çerezi ile `POST /api/send` (piksel, CV yok) |
 
 Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmesi.
 
 ## Nasıl çalışır?
 
 1. Gönderimden önce sunucu bir `track id` üretir.
-2. Mail gövdesine `https://SUNUCU/t/{id}.png` ve (CV varsa) `/c/{id}` eklenir.
+2. Takip mailinin gövdesine `https://SUNUCU/t/{id}.png` eklenir.
 3. Mail açılınca piksel istenir → `open_count` artar.
-4. CV linkine basılıp **PDF indir** denince indirme kaydı düşer (önizleme taraması sayılmaz).
-5. Eklenti ~1 dakikada bir `/api/signals` bakar; yeni olayda masaüstü bildirimi çıkar.
+4. Açık panel ~8 saniyede bir `/api/signals` bakar; yeni açılışta bildirim çıkar.
 
 **Önemli:** Piksel **internetten** gelir. Gerçek Gmail okundusu için `localhost` yetmez. VPS, [ngrok](https://ngrok.com) veya Cloudflare Tunnel kullanın; `.env` `PUBLIC_BASE_URL` ile eklenti URL’si **aynı** olsun.
 

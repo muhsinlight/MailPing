@@ -279,6 +279,27 @@ a.btn { text-decoration: none; display: inline-block; }
   padding: 10px 12px;
 }
 .compose textarea { min-height: 88px; resize: vertical; }
+.compose-rule {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink);
+  background: #f5f0e6;
+  border: 1px solid #e0d6c8;
+  border-radius: 12px;
+}
+.compose-rule strong { font-weight: 650; }
+.compose-warn {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #7a2e1a;
+  background: #fdeee8;
+  border: 1px solid #e8c4b8;
+  border-radius: 10px;
+}
 
 .toast {
   position: fixed;

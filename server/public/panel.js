@@ -1,9 +1,12 @@
 const PAGE = 40;
 const SETUP_KEY = "mailping-setup-later";
+const RULE_KEY = "mailping-compose-rule-seen";
+const PRODUCT_KEY = "mailping-product-rule-seen";
+const CV_BLOCK_MSG =
+  "CV veya özgeçmiş içeren mailleri Gmail (veya kullandığın posta) üzerinden gönder. MailPing yalnızca takip / hatırlatma için.";
 
 const state = {
   tracks: [],
-  cv: null,
   gmail: null,
   filter: "all",
   status: "",
@@ -52,13 +55,6 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString("tr-TR");
 }
 
-function formatBytes(n) {
-  if (!n) return "";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 function toast(msg) {
   const el = $("toast");
   el.textContent = msg;
@@ -76,6 +72,21 @@ function liveOn() {
 function gmailReady() {
   const g = state.gmail;
   return Boolean(g && (g.oauthConnected || g.imapReady));
+}
+
+function mentionsCv(subject, body) {
+  const text = `${subject || ""}\n${body || ""}`.toLowerCase();
+  if (/\bcv\b/.test(text) || /(^|[^\w])cv['\u2019]/.test(text)) return true;
+  if (/özgeçmiş|özgecmis|resume|curriculum\s*vitae/.test(text)) return true;
+  return false;
+}
+
+function updateComposeCvWarn() {
+  const warn = $("composeCvWarn");
+  if (!warn || $("composeSheet").hidden) return;
+  const hit = mentionsCv($("composeSubject").value, $("composeBody").value);
+  warn.hidden = !hit;
+  warn.textContent = hit ? CV_BLOCK_MSG : "";
 }
 
 function daysSince(iso) {
@@ -99,7 +110,7 @@ function followHint(t) {
 
 function renderWeek() {
   const s = state.stats || {};
-  $("weekLine").textContent = `Bu hafta ${s.weekOpened || 0} açıldı · ${s.weekCv || 0} CV indi · ${s.inboxSilent || 0} sessiz`;
+  $("weekLine").textContent = `Bu hafta ${s.weekOpened || 0} açıldı · ${s.inboxSilent || 0} sessiz`;
 }
 
 function renderSegments() {
@@ -127,20 +138,12 @@ function renderKinds() {
 }
 
 function renderSetup() {
-  const cv = state.cv;
   const g = state.gmail;
   const connected = gmailReady();
-  $("stepCv").classList.toggle("done", Boolean(cv));
   $("stepGmail").classList.toggle("done", connected);
   $("stepLive").classList.toggle("done", liveOn());
-  $("cvHint").textContent = cv
-    ? `${cv.filename} · ${formatBytes(cv.size)}`
-    : "PDF sitede durur, maile sen seçince gider.";
-  $("cvPreview").hidden = !cv;
-  $("cvRemove").hidden = !cv;
-  const readySteps = Number(Boolean(cv)) + Number(connected);
-  $("setupDone").disabled = readySteps < 2;
-  $("setupTitle").textContent = readySteps >= 2 && liveOn() ? "Takip hazır" : "Takip hazır değil";
+  $("setupDone").disabled = !connected;
+  $("setupTitle").textContent = connected && liveOn() ? "Takip hazır" : connected ? "Gmail bağlı" : "Takip hazır değil";
 
   if (!g) return;
   $("gmailHint").textContent = g.email
@@ -189,7 +192,7 @@ function rowHtml(t) {
 function emptyCopy() {
   if (state.loading && !state.tracks.length) return "Yükleniyor…";
   if (!state.query && state.filter === "all" && !state.status && !state.total) {
-    return "Henüz başvuru yok. Mail gönder veya kurulumdan Gmail’i çek.";
+    return "Henüz başvuru yok. Gmail’den başvuru at ve kurulumdan gönderilenleri çek.";
   }
   return "Bu aşamada kayıt yok.";
 }
@@ -237,7 +240,7 @@ function renderDetail() {
     ? t.events.map(eventHtml).join("")
     : t.tracked === false
       ? `<li><strong>Takip yok</strong><small>Bu mail piksel eklenmeden gitmiş.</small></li>`
-      : `<li><strong>Hareket yok</strong><small>Mail açılınca veya CV inince burada görünür.</small></li>`;
+      : `<li><strong>Hareket yok</strong><small>Takip maili açılınca burada görünür.</small></li>`;
   box.innerHTML = `
     <h2>${escapeHtml(company || t.to_email)}</h2>
     <p class="mail">${escapeHtml(t.to_email)}</p>
@@ -245,14 +248,13 @@ function renderDetail() {
     <span class="pill ${pillClass}">${escapeHtml(stage.label)}</span>
     <div class="detail-actions">
       <button class="btn solid" type="button" data-follow="1">Takip maili yaz</button>
-      <button class="btn" type="button" data-copy="${escapeHtml(t.cvUrl)}">CV linkini kopyala</button>
     </div>
     <ol class="timeline">${sent}${events}</ol>
   `;
 }
 
 function syncBackdrop() {
-  $("backdrop").hidden = $("setupSheet").hidden && $("cvSheet").hidden && $("composeSheet").hidden;
+  $("backdrop").hidden = $("setupSheet").hidden && $("composeSheet").hidden;
 }
 
 function setSheet(id, open) {
@@ -260,17 +262,6 @@ function setSheet(id, open) {
   sheet.hidden = !open;
   sheet.setAttribute("aria-hidden", open ? "false" : "true");
   syncBackdrop();
-}
-
-function setPreview(open) {
-  const frame = $("cvFrame");
-  setSheet("cvSheet", open);
-  if (open) {
-    $("cvSheetTitle").textContent = state.cv?.filename || "CV";
-    frame.src = `/api/cv/file?inline=1&t=${Date.now()}`;
-  } else {
-    frame.removeAttribute("src");
-  }
 }
 
 function closeDetail() {
@@ -370,14 +361,21 @@ async function checkSignals() {
 }
 
 function maybeOpenSetup() {
-  const incomplete = !state.cv || !gmailReady();
-  if (incomplete && localStorage.getItem(SETUP_KEY) !== "1") setSheet("setupSheet", true);
+  if (!gmailReady() && localStorage.getItem(SETUP_KEY) !== "1") setSheet("setupSheet", true);
+}
+
+function openComposeSheet() {
+  setSheet("composeSheet", true);
+  updateComposeCvWarn();
+  if (!localStorage.getItem(RULE_KEY)) {
+    localStorage.setItem(RULE_KEY, "1");
+    toast("CV’li mail Gmail’den; buradan yalnız takip hatırlatması.");
+  }
 }
 
 async function refreshMeta() {
   await checkSignals().catch(() => {});
-  const [cvRes, gmailRes] = await Promise.all([api("/api/cv"), api("/api/gmail/status")]);
-  if (cvRes.ok) state.cv = (await cvRes.json()).cv;
+  const gmailRes = await api("/api/gmail/status");
   if (gmailRes.ok) state.gmail = await gmailRes.json();
   renderSetup();
   if (state.openId) {
@@ -391,17 +389,15 @@ async function refreshMeta() {
 }
 
 function openFollow(track) {
-  if (!track) {
-    $("composeForm").reset();
-    setSheet("composeSheet", true);
-    return;
-  }
-  setSheet("composeSheet", true);
+  $("composeForm").reset();
+  openComposeSheet();
+  if (!track) return;
   $("composeTo").value = track.to_email || "";
   const subject = String(track.subject || "").trim();
   $("composeSubject").value = subject ? `Takip: ${subject}` : "Takip";
-  $("composeBody").value = "Merhaba,\n\nGönderdiğim başvuruyu hatırlatmak istedim. Uygun olduğunuzda dönüşünüzü beklerim.\n\nİyi çalışmalar.";
-  $("composeCv").checked = Boolean(state.cv);
+  $("composeBody").value =
+    "Merhaba,\n\nGönderdiğim başvuruyu hatırlatmak istedim. Uygun olduğunuzda dönüşünüzü beklerim.\n\nİyi çalışmalar.";
+  updateComposeCvWarn();
 }
 
 $("segments").addEventListener("click", (e) => {
@@ -434,26 +430,17 @@ $("list").addEventListener("click", (e) => {
 
 $("closeDetail").addEventListener("click", closeDetail);
 
-$("detail").addEventListener("click", async (e) => {
-  if (e.target.closest("[data-follow]")) {
-    openFollow(state.detail);
-    return;
-  }
-  const btn = e.target.closest("[data-copy]");
-  if (!btn) return;
-  try {
-    await navigator.clipboard.writeText(btn.dataset.copy);
-    toast("Kopyalandı");
-  } catch {
-    toast("Kopyalanamadı");
-  }
+$("detail").addEventListener("click", (e) => {
+  if (e.target.closest("[data-follow]")) openFollow(state.detail);
 });
 
 $("followTop").addEventListener("click", () => openFollow(state.detail));
 $("openCompose").addEventListener("click", () => {
   $("composeForm").reset();
-  setSheet("composeSheet", true);
+  openComposeSheet();
 });
+$("composeSubject").addEventListener("input", updateComposeCvWarn);
+$("composeBody").addEventListener("input", updateComposeCvWarn);
 $("closeCompose").addEventListener("click", () => setSheet("composeSheet", false));
 
 $("navInbox").addEventListener("click", () => {
@@ -474,14 +461,12 @@ $("setupDone").addEventListener("click", () => {
 
 $("backdrop").addEventListener("click", () => {
   setSheet("composeSheet", false);
-  setPreview(false);
   setSheet("setupSheet", false);
 });
 
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   setSheet("composeSheet", false);
-  setPreview(false);
   setSheet("setupSheet", false);
   if (window.matchMedia("(max-width: 900px)").matches) closeDetail();
 });
@@ -492,42 +477,6 @@ const moreObserver = new IntersectionObserver((entries) => {
   loadPage({ append: true }).catch(() => toast("Liste alınamadı"));
 }, { root: $("main"), rootMargin: "120px" });
 moreObserver.observe($("more"));
-
-$("cvFile").addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  e.target.value = "";
-  if (!file) return;
-  if (!file.name.toLowerCase().endsWith(".pdf")) {
-    toast("Sadece PDF");
-    return;
-  }
-  const res = await api("/api/cv", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/pdf",
-      "X-Filename": encodeURIComponent(file.name),
-    },
-    body: await file.arrayBuffer(),
-  });
-  if (!res.ok) {
-    toast("CV yüklenemedi");
-    return;
-  }
-  state.cv = (await res.json()).cv;
-  renderSetup();
-  toast("CV kaydedildi");
-});
-
-$("cvPreview").addEventListener("click", () => setPreview(true));
-$("closePreview").addEventListener("click", () => setPreview(false));
-
-$("cvRemove").addEventListener("click", async () => {
-  if (!confirm("Aktif CV kaldırılsın mı?")) return;
-  await api("/api/cv", { method: "DELETE" });
-  state.cv = null;
-  renderSetup();
-  toast("CV kaldırıldı");
-});
 
 $("gmailSync").addEventListener("click", async () => {
   $("gmailSync").disabled = true;
@@ -575,12 +524,13 @@ $("composeForm").addEventListener("submit", async (e) => {
     toast("Geçerli bir e-posta yaz");
     return;
   }
-  if ($("composeCv").checked && !state.cv) {
-    toast("CV için kurulumdan PDF yükle");
-    return;
-  }
   const subject = $("composeSubject").value.trim();
   const text = $("composeBody").value.trim();
+  if (mentionsCv(subject, text)) {
+    toast(CV_BLOCK_MSG);
+    updateComposeCvWarn();
+    return;
+  }
   button.disabled = true;
   const failed = [];
   try {
@@ -593,7 +543,6 @@ $("composeForm").addEventListener("submit", async (e) => {
           subject,
           text,
           source: "panel",
-          includeCv: $("composeCv").checked,
         }),
       });
       if (!res.ok) {
@@ -626,7 +575,13 @@ if (gmailQs.get("gmail") === "ok") toast("Gmail bağlandı");
 if (gmailQs.get("gmail") === "error") toast(gmailQs.get("m") || "Gmail bağlanamadı");
 
 Promise.all([loadPage({ reset: true }), refreshMeta()])
-  .then(() => maybeOpenSetup())
+  .then(() => {
+    if (!localStorage.getItem(PRODUCT_KEY)) {
+      localStorage.setItem(PRODUCT_KEY, "1");
+      toast("MailPing: CV’li başvuru Gmail’den; buradan yalnız takip maili.");
+    }
+    maybeOpenSetup();
+  })
   .catch(() => {
     $("list").innerHTML = `<div class="empty">Sunucuya bağlanılamadı.</div>`;
   });

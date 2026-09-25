@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="/panel.css?v=side3" />
+  <link rel="stylesheet" href="/panel.css?v=track1" />
 </head>
 <body>
   <div class="app">
@@ -19,11 +19,11 @@
         </svg>
         MailPing
       </div>
-      <p class="side-lede">Gönderdiğin başvurular ortada. Bir satıra bas, sağda açıldı mı gör.</p>
+      <p class="side-lede">Başvuruların açıldı mı burada görünür. CV’li ilk mail Gmail’den; hatırlatma buradan.</p>
       <nav class="side-nav">
         <button id="navInbox" class="side-link on" type="button">Başvurular</button>
-        <button id="openCompose" class="btn solid wide" type="button">Mail gönder</button>
-        <button id="openSetup" class="side-link" type="button">Kurulum (CV, Gmail)</button>
+        <button id="openCompose" class="btn solid wide" type="button">Takip maili</button>
+        <button id="openSetup" class="side-link" type="button">Kurulum (Gmail)</button>
       </nav>
     </aside>
 
@@ -31,7 +31,7 @@
       <header class="top">
         <div>
           <h1>Başvurular</h1>
-          <p id="weekLine" class="lede">Bu hafta 0 açıldı · 0 CV indi · 0 sessiz</p>
+          <p id="weekLine" class="lede">Bu hafta 0 açıldı · 0 sessiz</p>
         </div>
         <div class="head-actions">
           <label class="search">
@@ -80,28 +80,13 @@
     <button id="closeSetup" class="icon" type="button">Kapat</button>
     <p class="brand-line">MailPing</p>
     <h2 id="setupTitle">Takip hazır değil</h2>
-    <p id="setupLede" class="lede">Üç adım bitince Gmail’den giden başvurular burada açılma ve CV olarak görünür.</p>
+    <p id="setupLede" class="lede">MailPing mailin açıldı mı diye bakar; CV göndermez. İlk başvuruyu Gmail’den at, gönderilenleri buraya çek.</p>
     <ol class="steps">
-      <li id="stepCv">
+      <li id="stepGmail">
         <span class="num" aria-hidden="true">1</span>
         <div>
-          <strong>CV yükle</strong>
-          <p id="cvHint">PDF sitede durur, maile sen seçince gider.</p>
-        </div>
-        <div class="step-actions">
-          <label class="btn solid">
-            PDF seç
-            <input id="cvFile" type="file" accept="application/pdf,.pdf" hidden />
-          </label>
-          <button id="cvPreview" class="btn" type="button" hidden>Önizle</button>
-          <button id="cvRemove" class="btn danger" type="button" hidden>Kaldır</button>
-        </div>
-      </li>
-      <li id="stepGmail">
-        <span class="num" aria-hidden="true">2</span>
-        <div>
           <strong>Gmail bağla</strong>
-          <p id="gmailHint">Eski gönderilenler listeye düşer.</p>
+          <p id="gmailHint">Gönderilenler listeye düşer (açılma takibi yok).</p>
         </div>
         <div class="step-actions">
           <a id="gmailOAuth" class="btn solid" href="/api/gmail/connect" hidden>Google ile bağla</a>
@@ -110,10 +95,10 @@
         </div>
       </li>
       <li id="stepLive">
-        <span class="num" aria-hidden="true">3</span>
+        <span class="num" aria-hidden="true">2</span>
         <div>
           <strong>Bildirimi aç</strong>
-          <p>Mail açılınca veya CV inince bu tarayıcıdan masaüstü bildirimi düşer.</p>
+          <p>Takip maili açılınca bu tarayıcıdan masaüstü bildirimi düşer.</p>
         </div>
         <div class="step-actions">
           <button id="enableLive" class="btn" type="button">Bildirimi aç</button>
@@ -130,7 +115,11 @@
 
   <aside id="composeSheet" class="sheet compose" hidden aria-hidden="true">
     <button id="closeCompose" class="icon" type="button">Kapat</button>
-    <h2>Mail gönder</h2>
+    <h2>Takip maili</h2>
+    <p class="compose-rule" id="composeRule">
+      <strong>Kural:</strong> MailPing yalnızca <em>açıldı mı</em> takibi için. CV veya ilk başvuru metnini Gmail’den gönder; buradan kısa hatırlatma yaz. Metinde “CV” veya özgeçmiş geçerse gönderim engellenir.
+    </p>
+    <p id="composeCvWarn" class="compose-warn" hidden></p>
     <p class="lede">Birden fazla adresi virgülle ayır. Her alıcı ayrı takip edilir.</p>
     <form id="composeForm">
       <label>
@@ -143,23 +132,13 @@
       </label>
       <label>
         Mesaj
-        <textarea id="composeBody" name="body" required></textarea>
-      </label>
-      <label class="check">
-        <input id="composeCv" name="includeCv" type="checkbox" />
-        Bu maile sitedeki CV linkini koy
+        <textarea id="composeBody" name="body" required placeholder="Merhaba, başvurum hakkında kısa bir hatırlatma…"></textarea>
       </label>
       <button class="btn solid" type="submit">Gönder</button>
     </form>
   </aside>
 
-  <aside id="cvSheet" class="sheet preview" hidden aria-hidden="true">
-    <button id="closePreview" class="icon" type="button">Kapat</button>
-    <h2 id="cvSheetTitle">CV</h2>
-    <iframe id="cvFrame" title="CV önizleme"></iframe>
-  </aside>
-
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=side3"></script>
+  <script src="/panel.js?v=track1"></script>
 </body>
 </html>
