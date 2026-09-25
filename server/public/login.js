@@ -10,7 +10,8 @@ const error = document.getElementById("error");
   }
 })();
 
-const button = form.querySelector("button");
+const button = form.querySelector("button[type=submit]");
+const forgot = document.getElementById("forgot");
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -45,5 +46,29 @@ form.addEventListener("submit", async (e) => {
     location.replace("/");
   } finally {
     button.disabled = false;
+  }
+});
+
+forgot.addEventListener("click", async () => {
+  error.hidden = true;
+  forgot.disabled = true;
+  try {
+    const res = await fetch("/api/recover", { method: "POST", credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 429) {
+      const minutes = Math.max(1, Math.ceil(Number(data.retryAfter || 0) / 60));
+      error.textContent = `Yeni şifre az önce gitti. ${minutes} dakika sonra tekrar iste.`;
+      error.hidden = false;
+      return;
+    }
+    if (!res.ok) {
+      error.textContent = data.error || "Şifre gönderilemedi.";
+      error.hidden = false;
+      return;
+    }
+    error.textContent = `Yeni şifre ${data.sentTo} adresine gitti. Eski şifre kapandı.`;
+    error.hidden = false;
+  } finally {
+    forgot.disabled = false;
   }
 });

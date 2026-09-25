@@ -4,94 +4,92 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
-  <link rel="icon" href="/logo.png" />
-  <link rel="stylesheet" href="/panel.css?v=compose1" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/panel.css?v=min1" />
 </head>
 <body>
-  <div class="wrap">
-    <header class="bar">
-      <span class="mark"><img src="/logo.png" alt="" width="28" height="28" />MailPing</span>
-      <div class="actions">
-        <button class="pulse" id="pulse" type="button">Canlı</button>
-        <button class="btn" id="copyToken" type="button">Eklenti token</button>
-        <button class="btn" id="logout" type="button">Çıkış</button>
+  <div class="app">
+    <aside class="side">
+      <div class="mark">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#1c1a17"/>
+          <path d="M8 12.2h16v10.2H8z" fill="none" stroke="#fffdf8" stroke-width="1.6"/>
+          <path d="M8 12.6 16 18l8-5.4" fill="none" stroke="#fffdf8" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="24.2" cy="8.6" r="3" fill="#c4654a"/>
+        </svg>
+        MailPing
       </div>
-    </header>
-
-    <section class="bento">
-      <article class="tile hero">
-        <p class="kicker">Takip kutusu</p>
-        <h1>Mail açıldı mı,<br>CV indirildi mi.</h1>
-        <p class="lede">Gmail bağla, gönderilenler bu kutuya düşer. Yeni maillerde açıldı ve CV takibi çalışır.</p>
-        <button id="openCompose" class="btn solid compose-open" type="button">Mail gönder</button>
-      </article>
-
-      <article class="tile stat dark" id="statOpen">
-        <b>0</b>
-        <span>Mail açıldı</span>
-      </article>
-      <article class="tile stat" id="statWait">
-        <b>0</b>
-        <span>Mail bakılmadı</span>
-      </article>
-      <article class="tile stat" id="statCv">
-        <b>0</b>
-        <span>CV indirildi</span>
-      </article>
-      <article class="tile stat" id="statAll">
-        <b>0</b>
-        <span>Toplam gönderim</span>
-      </article>
-
-      <article class="tile connect" id="gmailCard">
-        <div>
-          <p class="kicker">Gmail</p>
-          <h2 id="gmailTitle">Bağlı değil</h2>
-          <p id="gmailHint" class="lede">Hesabı bağlayınca gönderilenler buraya gelir. Eski maillerde açıldı takibi olmaz.</p>
-        </div>
+      <button id="openCompose" class="btn solid wide" type="button">Mail gönder</button>
+      <nav class="nav" id="nav">
+        <button type="button" data-view="sent" class="on">Gönderilenler</button>
+        <button type="button" data-view="panel">Panelden giden</button>
+        <button type="button" data-view="opened">Açılanlar</button>
+        <button type="button" data-view="waiting">Henüz açılmayan</button>
+      </nav>
+      <section class="side-block" id="cvCard">
+        <p class="kicker">CV</p>
+        <h2 id="cvName">Yüklenmedi</h2>
+        <p id="cvHint" class="lede">Sitede durur. Maile ancak sen seçersen gider.</p>
         <div class="actions">
-          <a id="gmailOAuth" class="btn solid" href="/api/gmail/connect" hidden>Google ile bağla</a>
-          <button id="gmailSync" class="btn solid" type="button">Gönderilenleri çek</button>
-          <button id="gmailDisconnect" class="btn danger" type="button" hidden>Kopar</button>
-        </div>
-      </article>
-
-      <article class="tile cv" id="cvCard">
-        <div>
-          <p class="kicker">Aktif CV</p>
-          <h2 id="cvName">Yüklenmedi</h2>
-          <p id="cvHint" class="lede">PDF yükle, sonraki maillere indirme linki eklenir.</p>
-        </div>
-        <div class="actions">
-          <label class="btn solid">
-            PDF yükle
+          <label class="btn">
+            PDF seç
             <input id="cvFile" type="file" accept="application/pdf,.pdf" hidden />
           </label>
           <button id="cvPreview" class="btn" type="button" hidden>Önizle</button>
           <button id="cvRemove" class="btn danger" type="button" hidden>Kaldır</button>
         </div>
-      </article>
+      </section>
+      <section class="side-block" id="gmailCard">
+        <p class="kicker">Gmail</p>
+        <h2 id="gmailTitle">Bağlı değil</h2>
+        <p id="gmailHint" class="lede">Eski gönderilenleri çekmek için.</p>
+        <div class="actions">
+          <a id="gmailOAuth" class="btn" href="/api/gmail/connect" hidden>Google ile bağla</a>
+          <button id="gmailSync" class="btn" type="button">Çek</button>
+          <button id="gmailDisconnect" class="btn danger" type="button" hidden>Kopar</button>
+        </div>
+      </section>
+      <div class="side-foot">
+        <button class="pulse" id="pulse" type="button">Canlı</button>
+        <button class="btn" id="logout" type="button">Çıkış</button>
+      </div>
+    </aside>
 
-      <article class="tile board">
+    <main class="main">
+      <header class="top">
+        <div>
+          <h1 id="viewTitle">Gönderilenler</h1>
+          <p id="viewHint" class="lede">Sağdaki yazı, alıcının maili açıp açmadığıdır.</p>
+        </div>
+        <div class="stats">
+          <article class="stat" id="statOpen"><b>0</b><span>Açtı</span></article>
+          <article class="stat" id="statWait"><b>0</b><span>Açılmadı</span></article>
+          <article class="stat" id="statCv"><b>0</b><span>CV indi</span></article>
+          <article class="stat" id="statAll"><b>0</b><span>Toplam</span></article>
+        </div>
+      </header>
+
+      <section class="board">
         <div class="filter-bar">
           <label>
             Kim
             <select id="kind">
-              <option value="apps" selected>Başvurular — şirket, İK, staj…</option>
-              <option value="sirket">Şirket (info@, firma.com)</option>
+              <option value="all" selected>Tümü</option>
+              <option value="panel">Panelden giden</option>
+              <option value="apps">Başvurular</option>
+              <option value="sirket">Şirket</option>
               <option value="ik">İK / HR</option>
               <option value="staj">Staj</option>
               <option value="kariyer">Kariyer</option>
-              <option value="basvuru">İlan / pozisyon</option>
-              <option value="other">Diğer / gürültü</option>
-              <option value="all">Tümü</option>
+              <option value="basvuru">İlan</option>
+              <option value="other">Diğer</option>
             </select>
           </label>
           <label>
             Durum
             <select id="status">
               <option value="" selected>Hepsi</option>
-              <option value="opened">Mail açıldı</option>
+              <option value="opened">Açıldı</option>
               <option value="waiting">Açılmadı</option>
               <option value="cv">CV indirildi</option>
             </select>
@@ -101,10 +99,14 @@
             <input id="search" type="search" placeholder="firma, ik@, konu…" />
           </label>
         </div>
-        <div id="list" class="cards"></div>
-        <div id="more" class="more" hidden>Daha fazla</div>
-      </article>
-    </section>
+        <div id="list" class="rows"></div>
+        <div id="pager" class="pager" hidden>
+          <button id="prevPage" class="btn" type="button">Önceki</button>
+          <span id="pageLabel"></span>
+          <button id="nextPage" class="btn" type="button">Sonraki</button>
+        </div>
+      </section>
+    </main>
   </div>
 
   <div id="backdrop" class="backdrop" hidden></div>
@@ -115,7 +117,7 @@
   <aside id="composeSheet" class="sheet compose" hidden aria-hidden="true">
     <button id="closeCompose" class="icon" type="button" aria-label="Kapat">Kapat</button>
     <h2>Mail gönder</h2>
-    <p class="lede">Birden fazla adresi virgülle ayır. Her biri ayrı sayılır. CV yüklüyse link de gider.</p>
+    <p class="lede">Adresleri virgülle ayır. CV kutusu kapalıysa mailde CV satırı olmaz.</p>
     <form id="composeForm">
       <label>
         Kime
@@ -129,6 +131,10 @@
         Mesaj
         <textarea id="composeBody" name="body" required></textarea>
       </label>
+      <label class="check">
+        <input id="composeCv" name="includeCv" type="checkbox" />
+        Bu maile sitedeki CV linkini koy
+      </label>
       <button class="btn solid" type="submit">Gönder</button>
     </form>
   </aside>
@@ -138,6 +144,6 @@
     <iframe id="cvFrame" title="CV önizleme"></iframe>
   </aside>
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=scroll1"></script>
+  <script src="/panel.js?v=min1"></script>
 </body>
 </html>

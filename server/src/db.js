@@ -199,10 +199,15 @@ export function listTracks(limit = 300) {
 function filterClause(kind, status, query) {
   const where = [];
   const params = [];
-  const topic = topicFilter(kind);
-  if (topic) {
-    where.push(topic.sql);
-    params.push(...topic.params);
+  if (kind === "panel") {
+    where.push("source = ?");
+    params.push("panel");
+  } else {
+    const topic = topicFilter(kind);
+    if (topic) {
+      where.push(topic.sql);
+      params.push(...topic.params);
+    }
   }
   const statusSql = statusFilter(status);
   if (statusSql) where.push(statusSql);

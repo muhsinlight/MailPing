@@ -7,6 +7,8 @@
 .gate .tile {
   width: min(400px, 100%);
 }
+.gate .mark { display: inline-flex; align-items: center; gap: 8px; }
+.gate .mark svg { display: block; flex: none; }
 .gate form { display: grid; gap: 12px; margin-top: 18px; }
 .gate label { display: grid; gap: 6px; font-size: 0.78rem; color: var(--mute); }
 .gate input {
@@ -18,3 +20,15 @@
   font: inherit;
 }
 .gate .err { margin: 0; color: var(--danger); font-size: 0.86rem; }
+.text {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--mute);
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+  padding: 0;
+}
+.text:hover { color: var(--ink); }
+.text:disabled { opacity: 0.6; cursor: wait; }

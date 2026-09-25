@@ -28,10 +28,7 @@ function appendHtml(html, snippet) {
 
 function buildCvHtml(url, fileName) {
   const label = escapeHtml(fileName || "PDF");
-  return `<p style="margin:16px 0;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5">
-  <strong>CV:</strong>
-  <a href="${url}" style="color:#0b6e4f">${label} görüntüle / indir</a>
-</p>`;
+  return `<p style="margin:16px 0;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5"><a href="${url}" style="color:#0b6e4f">${label}</a></p>`;
 }
 
 let transporter;
@@ -48,8 +45,28 @@ function getSmtpTransporter() {
   return transporter;
 }
 
-function isSmtpConfigured() {
+export function isSmtpConfigured() {
   return Boolean(smtp.user && smtp.pass);
+}
+
+export function ownerMailbox() {
+  return String(smtp.from || smtp.user || notifyCfg.to || "").trim();
+}
+
+export async function sendPanelPassword(to, password) {
+  const transport = getSmtpTransporter();
+  if (!transport || !to) throw new Error("SMTP yapılandırılmamış (SMTP_USER / SMTP_PASS)");
+  await transport.sendMail({
+    from: fromHeader(),
+    to,
+    subject: "MailPing panel şifresi",
+    text: [
+      "Yeni panel şifren:",
+      password,
+      "",
+      "Eski şifre artık geçmez. Bu mesajı senden başkası istediyse şifreyi yine senin kutuna gönderdik.",
+    ].join("\n"),
+  });
 }
 
 function fromHeader() {
@@ -58,7 +75,7 @@ function fromHeader() {
   return email ? `"${name}" <${email}>` : name;
 }
 
-export function createTrackWithPixel({ toEmail, subject, fromEmail, source }) {
+export function createTrackWithPixel({ toEmail, subject, fromEmail, source, includeCv = false }) {
   const id = randomUUID();
   const track = createTrack({
     id,
@@ -68,7 +85,7 @@ export function createTrackWithPixel({ toEmail, subject, fromEmail, source }) {
     source: source ?? "api",
   });
   const url = pixelUrl(id);
-  const file = getCvMeta();
+  const file = includeCv ? getCvMeta() : null;
   const downloadUrl = cvUrl(id);
   return {
     track,
@@ -86,6 +103,7 @@ export async function sendTrackedEmail({
   html,
   fromEmail,
   source,
+  includeCv = false,
 }) {
   if (!isSmtpConfigured()) {
     throw new Error("SMTP yapılandırılmamış (SMTP_USER / SMTP_PASS)");
@@ -97,6 +115,7 @@ export async function sendTrackedEmail({
     subject,
     fromEmail: from,
     source: source ?? "smtp",
+    includeCv: Boolean(includeCv),
   });
 
   const body = appendHtml(appendHtml(html || `<p>${escapeHtml(text || "")}</p>`, cvHtml), pixelHtml);
@@ -126,28 +145,26 @@ export async function sendReadNotification(track) {
   const notifyTo = notifyCfg.to || smtp.from || smtp.user;
   if (!transport || !notifyTo) return;
 
-  const recipient = track.to_email || "unknown";
-  const originalSubject = track.subject?.trim() || "(no subject)";
+  const recipient = track.to_email || "alıcı";
+  const originalSubject = track.subject?.trim() || "(konu yok)";
+  const who = String(track.company || recipient).trim();
+  const safeWho = escapeHtml(who);
   const safeRecipient = escapeHtml(recipient);
   const safeSubject = escapeHtml(originalSubject);
 
   await transport.sendMail({
     from: fromHeader(),
     to: notifyTo,
-    subject: `${recipient} has just read ${originalSubject} - Your email was opened for the first time!`,
+    subject: `${who} maili açtı`,
     text: [
-      `${recipient} has just read ${originalSubject}`,
+      `${who} maili açtı.`,
       "",
-      "Your email was opened for the first time!",
-      "",
-      `To: ${recipient}`,
-      `Subject: ${originalSubject}`,
+      `Kime: ${recipient}`,
+      `Konu: ${originalSubject}`,
     ].join("\n"),
     html: `
-      <p><strong>${safeRecipient}</strong> has just read <strong>${safeSubject}</strong></p>
-      <p>Your email was opened for the first time!</p>
-      <hr style="border:none;border-top:1px solid #eee;margin:16px 0" />
-      <p style="color:#555;font-size:14px;margin:0">To: ${safeRecipient}<br/>Subject: ${safeSubject}</p>
+      <p><strong>${safeWho}</strong> maili açtı.</p>
+      <p style="color:#555;font-size:14px;margin:0">Kime: ${safeRecipient}<br/>Konu: ${safeSubject}</p>
     `.trim(),
   });
 }

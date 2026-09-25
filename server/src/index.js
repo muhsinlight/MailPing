@@ -13,12 +13,14 @@ import {
   pixelUrl,
 } from "./config.js";
 import {
+  getSetting,
   getTrack,
   listSignalsSince,
   listTrackEvents,
   listTracks,
   queryTracks,
   recordCvDownload,
+  setSetting,
   recordOpen,
   trackStats,
 } from "./db.js";
@@ -30,7 +32,14 @@ import {
   syncGmailApi,
   syncGmailImap,
 } from "./gmail.js";
-import { createTrackWithPixel, sendTrackedEmail, sendReadNotification } from "./email.js";
+import {
+  createTrackWithPixel,
+  isSmtpConfigured,
+  ownerMailbox,
+  sendPanelPassword,
+  sendReadNotification,
+  sendTrackedEmail,
+} from "./email.js";
 import { TRANSPARENT_PNG } from "./pixel.js";
 import {
   contentDisposition,
@@ -46,6 +55,8 @@ import {
   clearSessionCookie,
   createSessionCookie,
   credentialsInfo,
+  commitPanelPassword,
+  makePanelPassword,
   verifyPassword,
 } from "./auth.js";
 import { clientIp, createAttemptGuard, ipGate, securityHeaders } from "./security.js";
@@ -129,6 +140,62 @@ app.post("/api/login", (req, res, next) => {
     .catch(next);
 });
 
+function maskMailbox(email) {
+  const [user, host] = String(email).split("@");
+  if (!user || !host) return "posta kutun";
+  return `${user.slice(0, 1)}***@${host}`;
+}
+
+app.post("/api/recover", (req, res, next) => {
+  const ip = clientIp(req, TRUST_PROXY);
+  loginAttempts
+    .run(ip, async () => {
+      const blocked = loginAttempts.status(ip);
+      if (blocked.locked) {
+        res.set("Retry-After", String(blocked.retryAfter));
+        res.status(429).json({
+          error: "Çok fazla deneme, biraz bekleyin",
+          retryAfter: blocked.retryAfter,
+        });
+        return;
+      }
+      const last = Number(getSetting("panel_password_reset_at") || 0);
+      const waitMs = 15 * 60 * 1000;
+      const left = waitMs - (Date.now() - last);
+      if (last && left > 0) {
+        const retryAfter = Math.ceil(left / 1000);
+        res.set("Retry-After", String(retryAfter));
+        res.status(429).json({
+          error: "Yeni şifre az önce gönderildi",
+          retryAfter,
+        });
+        return;
+      }
+      const to = ownerMailbox();
+      if (!isSmtpConfigured() || !to) {
+        loginAttempts.fail(ip);
+        res.status(503).json({ error: "Posta ayarı yok. Şifre sunucu kaydından değiştirilir." });
+        return;
+      }
+      const password = makePanelPassword();
+      try {
+        await sendPanelPassword(to, password);
+      } catch {
+        loginAttempts.fail(ip);
+        res.status(502).json({ error: "Şifre gönderilemedi. Eski şifre duruyor." });
+        return;
+      }
+      commitPanelPassword(password);
+      setSetting("panel_password_reset_at", String(Date.now()));
+      loginAttempts.ok(ip);
+      res.json({
+        ok: true,
+        sentTo: maskMailbox(to),
+      });
+    })
+    .catch(next);
+});
+
 app.post("/api/logout", (_req, res) => {
   res.setHeader("Set-Cookie", clearSessionCookie());
   res.json({ ok: true });
@@ -205,6 +272,7 @@ app.post("/api/send", async (req, res) => {
       html: body.html,
       fromEmail: body.fromEmail,
       source: body.source ?? "smtp",
+      includeCv: Boolean(body.includeCv),
     });
     res.status(201).json(toPublicTrack(track, { sent: true }));
   } catch (err) {

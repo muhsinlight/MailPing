@@ -1,5 +1,12 @@
 const TRACKING_PATH = /^\/(t\/[^/]+\.png|c\/[^/]+(\/file)?)$/;
-const LOGIN_ASSETS = new Set(["/login.html", "/login.js", "/login.css", "/panel.css"]);
+const LOGIN_ASSETS = new Set([
+  "/login.html",
+  "/login.js",
+  "/login.css",
+  "/panel.css",
+  "/logo.svg",
+  "/logo.png",
+]);
 
 export function normalizeIp(ip) {
   let value = String(ip || "").trim();
@@ -33,6 +40,7 @@ export function isLoginPublic(req) {
   const path = req.path || "";
   if (LOGIN_ASSETS.has(path) && req.method === "GET") return true;
   if (path === "/api/login" && req.method === "POST") return true;
+  if (path === "/api/recover" && req.method === "POST") return true;
   return false;
 }
 

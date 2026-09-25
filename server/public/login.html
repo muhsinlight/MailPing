@@ -4,14 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing giriş</title>
-  <link rel="icon" href="/logo.png" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/panel.css?v=logo1" />
   <link rel="stylesheet" href="/login.css" />
 </head>
 <body>
   <main class="gate">
     <article class="tile">
-      <p class="kicker mark"><img src="/logo.png" alt="" width="28" height="28" />MailPing</p>
+      <p class="kicker mark">
+        <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+          <rect width="32" height="32" rx="8" fill="#1c1a17"/>
+          <path d="M8 12.2h16v10.2H8z" fill="none" stroke="#fffdf8" stroke-width="1.6"/>
+          <path d="M8 12.6 16 18l8-5.4" fill="none" stroke="#fffdf8" stroke-width="1.6" stroke-linejoin="round"/>
+          <circle cx="24.2" cy="8.6" r="3" fill="#c4654a"/>
+        </svg>
+        MailPing
+      </p>
       <h1>Panel kilidi</h1>
       <p class="lede">VPS’te panel, CV ve Gmail bu şifrenin arkasında. Alıcı piksel / CV linki açık kalır.</p>
       <form id="form">
@@ -21,6 +29,7 @@
         </label>
         <p id="error" class="err" hidden></p>
         <button class="btn solid" type="submit">Giriş</button>
+        <button class="text" id="forgot" type="button">Şifremi unuttum</button>
       </form>
     </article>
   </main>

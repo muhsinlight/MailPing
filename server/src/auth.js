@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { PUBLIC_BASE_URL } from "./config.js";
+import { getSetting, setSetting } from "./db.js";
 import { isLoginPublic, isTrackingPublic } from "./security.js";
 
 const COOKIE = "mp";
@@ -20,6 +21,19 @@ export function loadCredentials() {
 }
 
 const creds = loadCredentials();
+const savedPassword = String(getSetting("panel_password") || "").trim();
+if (savedPassword) creds.panelPassword = savedPassword;
+
+export function makePanelPassword() {
+  return randomBytes(18).toString("base64url");
+}
+
+export function commitPanelPassword(password) {
+  const next = String(password || "").trim();
+  if (!next) throw new Error("Şifre boş");
+  setSetting("panel_password", next);
+  creds.panelPassword = next;
+}
 
 function hmac(value) {
   return createHmac("sha256", creds.authSecret).update(String(value)).digest();

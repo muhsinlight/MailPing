@@ -24,7 +24,7 @@ const watchRaw = process.env.NOTIFY_WATCH_RECIPIENTS;
 export const notify = {
   enabled: process.env.NOTIFY_ON_READ !== "false",
   to: process.env.NOTIFY_TO,
-  fromName: process.env.NOTIFY_FROM_NAME || "MailTracker update",
+  fromName: process.env.NOTIFY_FROM_NAME || "MailPing",
   /** null = tüm alıcılar */
   watch:
     !watchRaw || watchRaw.trim() === "*" || watchRaw.trim().toLowerCase() === "all"

@@ -1,17 +1,25 @@
-const PAGE = 24;
+const PAGE = 50;
+
+const VIEWS = {
+  sent: { title: "Gönderilenler", hint: "Sağdaki yazı, alıcının maili açıp açmadığıdır.", filter: "all", status: "" },
+  panel: { title: "Panelden giden", hint: "Bu siteden attığın mailler.", filter: "panel", status: "" },
+  opened: { title: "Açılanlar", hint: "En az bir kez açılmış mailler.", filter: "all", status: "opened" },
+  waiting: { title: "Henüz açılmayan", hint: "Takip edilen ama henüz açılmamış mailler.", filter: "all", status: "waiting" },
+};
 
 const state = {
   tracks: [],
   cv: null,
   gmail: null,
-  filter: "apps",
+  view: "sent",
+  filter: "all",
   status: "",
   query: "",
+  page: 0,
   openId: null,
   detail: null,
   stats: null,
   total: 0,
-  hasMore: true,
   loading: false,
 };
 
@@ -80,24 +88,21 @@ function renderCv() {
   const cv = state.cv;
   $("cvName").textContent = cv?.filename || "Yüklenmedi";
   $("cvHint").textContent = cv
-    ? `${formatBytes(cv.size)} · yeni maillere link eklenir`
-    : "PDF yükle, sonraki maillere indirme linki eklenir.";
+    ? `${formatBytes(cv.size)} · sitede duruyor`
+    : "Sitede durur. Maile ancak sen seçersen gider.";
   $("cvPreview").hidden = !cv;
   $("cvRemove").hidden = !cv;
 }
 
+function openPill(t) {
+  if (t.read) return `<span class="pill ok">Açtı · ${t.open_count}</span>`;
+  if (t.tracked === false) return `<span class="pill">Takip yok</span>`;
+  return `<span class="pill wait">Henüz açmadı</span>`;
+}
+
 function statusPills(t) {
-  const mail = t.read
-    ? `<span class="pill ok">Mail açıldı · ${t.open_count}</span>`
-    : t.tracked === false
-      ? `<span class="pill">Takip yok</span>`
-      : `<span class="pill">Mail bakılmadı</span>`;
-  const cv = t.cvDownloaded
-    ? `<span class="pill cv">CV indirildi · ${t.cv_download_count}</span>`
-    : t.tracked === false
-      ? `<span class="pill">CV takip yok</span>`
-      : `<span class="pill">CV bekliyor</span>`;
-  return mail + cv;
+  const cv = t.cvDownloaded ? `<span class="pill cv">CV indi · ${t.cv_download_count}</span>` : "";
+  return openPill(t) + cv;
 }
 
 function renderGmail() {
@@ -129,52 +134,48 @@ function browserLabel(ua) {
 }
 
 function cardHtml(t) {
-  const when = t.last_open_at || t.last_cv_download_at || t.created_at;
   const company = String(t.company || "").trim();
   const who = company || t.to_email;
-  const sub = company
-    ? `${t.to_email} · ${t.subject || "(konu yok)"}`
-    : `${t.subject || "(konu yok)"} · ${t.topicLabel || t.source || "api"}`;
+  const subject = t.subject || "(konu yok)";
+  const sub = company ? `${t.to_email} · ${subject}` : subject;
   return `
     <button class="row" type="button" data-id="${escapeHtml(t.id)}">
-      <div class="head">
-        <div>
-          <div class="who">${escapeHtml(who)}${t.topicLabel ? `<span class="tag">${escapeHtml(t.topicLabel)}</span>` : ""}</div>
-          <div class="sub">${escapeHtml(sub)}</div>
-        </div>
-        <div class="when">${timeAgo(when)}</div>
+      <div>
+        <div class="who">${escapeHtml(who)}</div>
+        <div class="sub">${escapeHtml(sub)}</div>
       </div>
-      <div class="pills">${statusPills(t)}</div>
+      <div>${statusPills(t)}</div>
     </button>`;
 }
 
-function sentinelVisible() {
-  const more = $("more");
-  if (!more || more.hidden) return false;
-  return more.getBoundingClientRect().top <= window.innerHeight + 120;
+function pageCount() {
+  return Math.max(1, Math.ceil(state.total / PAGE));
 }
 
-function renderFooter() {
-  const more = $("more");
-  if (!state.tracks.length) {
-    more.hidden = true;
+function renderPager() {
+  const pager = $("pager");
+  if (!state.total) {
+    pager.hidden = true;
     return;
   }
-  more.hidden = false;
-  more.textContent = state.hasMore
-    ? `${state.tracks.length} / ${state.total} · devamını yükle`
-    : `${state.tracks.length} / ${state.total}`;
+  pager.hidden = false;
+  const pages = pageCount();
+  const from = state.page * PAGE + 1;
+  const to = Math.min(state.total, (state.page + 1) * PAGE);
+  $("pageLabel").textContent = `${from}–${to} / ${state.total}`;
+  $("prevPage").disabled = state.page <= 0;
+  $("nextPage").disabled = state.page + 1 >= pages;
 }
 
 function renderList() {
   const root = $("list");
   if (!state.tracks.length) {
     root.innerHTML = `<div class="empty">${state.loading ? "Yükleniyor…" : "Bu filtrede kayıt yok."}</div>`;
-    renderFooter();
+    renderPager();
     return;
   }
   root.innerHTML = state.tracks.map(cardHtml).join("");
-  renderFooter();
+  renderPager();
 }
 
 function eventHtml(e) {
@@ -266,49 +267,54 @@ async function loadDetail(id) {
   setDrawer(true);
 }
 
-async function loadPage({ reset = false } = {}) {
-  if (state.loading) return;
-  if (!reset && !state.hasMore) return;
-  state.loading = true;
-  if (reset) {
-    state.tracks = [];
-    state.hasMore = true;
-    renderList();
+function syncViewChrome() {
+  const current = Object.entries(VIEWS).find(([, view]) => view.filter === state.filter && view.status === state.status);
+  state.view = current ? current[0] : "";
+  for (const button of document.querySelectorAll("#nav button")) {
+    button.classList.toggle("on", button.dataset.view === state.view);
   }
-  let added = 0;
+  if (current) {
+    $("viewTitle").textContent = current[1].title;
+    $("viewHint").textContent = current[1].hint;
+  }
+  $("kind").value = state.filter;
+  $("status").value = state.status;
+}
+
+async function loadPage({ page, quiet = false } = {}) {
+  if (state.loading) return;
+  if (page !== undefined) state.page = Math.max(0, page);
+  state.loading = true;
+  if (!quiet) renderList();
   const params = new URLSearchParams({
     paged: "1",
     limit: String(PAGE),
-    offset: String(reset ? 0 : state.tracks.length),
+    offset: String(state.page * PAGE),
     kind: state.filter,
     status: state.status,
     q: state.query,
   });
+  let retry = false;
   try {
     const res = await api(`/api/tracks?${params}`);
     if (!res.ok) throw new Error("Liste alınamadı");
     const data = await res.json();
     state.stats = data.stats;
     state.total = data.total;
-    if (reset) {
-      state.tracks = data.items;
-      added = data.items.length;
+    if (state.page > pageCount() - 1) {
+      state.page = pageCount() - 1;
+      retry = true;
     } else {
-      const seen = new Set(state.tracks.map((t) => t.id));
-      const fresh = data.items.filter((t) => !seen.has(t.id));
-      state.tracks.push(...fresh);
-      added = fresh.length;
+      state.tracks = data.items;
+      renderStats();
+      syncViewChrome();
+      renderList();
     }
-    state.hasMore = data.hasMore;
-    renderStats();
-    renderList();
   } finally {
     state.loading = false;
-    renderFooter();
+    renderPager();
   }
-  if (added > 0 && state.hasMore && sentinelVisible()) {
-    loadPage().catch(() => {});
-  }
+  if (retry) return loadPage({ quiet });
 }
 
 function signalText(signal) {
@@ -376,34 +382,24 @@ async function refreshMeta() {
       renderDrawer();
     }
   }
-  const params = new URLSearchParams({
-    paged: "1",
-    limit: String(PAGE),
-    offset: "0",
-    kind: state.filter,
-    status: state.status,
-    q: state.query,
-  });
-  const res = await api(`/api/tracks?${params}`);
-  if (!res.ok) return;
-  const data = await res.json();
-  state.stats = data.stats;
-  state.total = data.total;
-  state.hasMore = state.tracks.length < data.total;
-  const fresh = new Map(data.items.map((t) => [t.id, t]));
-  state.tracks = state.tracks.map((t) => fresh.get(t.id) || t);
-  const have = new Set(state.tracks.map((t) => t.id));
-  const newcomers = data.items.filter((t) => !have.has(t.id));
-  if (newcomers.length) state.tracks = [...newcomers, ...state.tracks];
-  renderStats();
-  renderList();
+  await loadPage({ quiet: true });
 }
 
 function applyFilters() {
   state.filter = $("kind").value;
   state.status = $("status").value;
-  loadPage({ reset: true }).catch(() => toast("Liste alınamadı"));
+  loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
 }
+
+$("nav").addEventListener("click", (e) => {
+  const button = e.target.closest("[data-view]");
+  if (!button) return;
+  const view = VIEWS[button.dataset.view];
+  if (!view) return;
+  state.filter = view.filter;
+  state.status = view.status;
+  loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
+});
 
 $("kind").addEventListener("change", applyFilters);
 $("status").addEventListener("change", applyFilters);
@@ -413,17 +409,16 @@ $("search").addEventListener("input", (e) => {
   state.query = e.target.value;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    loadPage({ reset: true }).catch(() => toast("Liste alınamadı"));
+    loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
   }, 250);
 });
 
-const moreEl = $("more");
-moreEl.addEventListener("click", () => {
-  if (state.hasMore) loadPage().catch(() => toast("Liste alınamadı"));
+$("prevPage").addEventListener("click", () => {
+  if (state.page > 0) loadPage({ page: state.page - 1 }).catch(() => toast("Liste alınamadı"));
 });
-window.addEventListener("scroll", () => {
-  if (sentinelVisible()) loadPage().catch(() => {});
-}, { passive: true });
+$("nextPage").addEventListener("click", () => {
+  if (state.page + 1 < pageCount()) loadPage({ page: state.page + 1 }).catch(() => toast("Liste alınamadı"));
+});
 
 $("list").addEventListener("click", (e) => {
   const row = e.target.closest("[data-id]");
@@ -500,6 +495,10 @@ $("composeForm").addEventListener("submit", async (e) => {
     toast("Geçerli bir e-posta yaz");
     return;
   }
+  if ($("composeCv").checked && !state.cv) {
+    toast("CV seçmek için soldan PDF yükle");
+    return;
+  }
   const subject = $("composeSubject").value.trim();
   const text = $("composeBody").value.trim();
   button.disabled = true;
@@ -509,7 +508,13 @@ $("composeForm").addEventListener("submit", async (e) => {
       const res = await api("/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toEmail, subject, text, source: "panel" }),
+        body: JSON.stringify({
+          toEmail,
+          subject,
+          text,
+          source: "panel",
+          includeCv: $("composeCv").checked,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -523,7 +528,9 @@ $("composeForm").addEventListener("submit", async (e) => {
     toast(failed.length ? `${recipients.length - failed.length} gitti, ${failed.length} kaldı` : "Gönderildi");
     setCompose(false);
     e.target.reset();
-    await loadPage({ reset: true });
+    state.filter = "panel";
+    state.status = "";
+    await loadPage({ page: 0 });
   } catch (err) {
     toast(err.message || "Gönderilemedi");
   } finally {
@@ -548,7 +555,7 @@ $("gmailSync").addEventListener("click", async () => {
     if (!res.ok) throw new Error(data.error || "Çekilemedi");
     state.gmail = data;
     renderGmail();
-    await loadPage({ reset: true });
+    await loadPage({ page: 0 });
     await refreshMeta();
     toast(`${data.imported} yeni mail geldi`);
   } catch (err) {
@@ -572,23 +579,12 @@ if (gmailQs.get("gmail") === "error") toast(gmailQs.get("m") || "Gmail bağlanam
 $("pulse").addEventListener("click", () => enableLiveSignal());
 renderPulse();
 
-$("copyToken").addEventListener("click", async () => {
-  try {
-    const res = await api("/api/auth");
-    const data = await res.json();
-    await navigator.clipboard.writeText(data.apiToken || "");
-    toast("Eklenti token kopyalandı");
-  } catch {
-    toast("Token alınamadı");
-  }
-});
-
 $("logout").addEventListener("click", async () => {
   await api("/api/logout", { method: "POST" }).catch(() => {});
   location.replace("/login.html");
 });
 
-Promise.all([loadPage({ reset: true }), refreshMeta()]).catch(() => {
+Promise.all([loadPage({ page: 0 }), refreshMeta()]).catch(() => {
   $("list").innerHTML = `<div class="empty">Sunucuya bağlanılamadı.</div>`;
 });
 setInterval(() => refreshMeta().catch(() => {}), 8000);
