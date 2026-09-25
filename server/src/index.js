@@ -54,8 +54,8 @@ import {
   authGate,
   clearSessionCookie,
   createSessionCookie,
-  credentialsInfo,
   commitPanelPassword,
+  isAuthenticated,
   makePanelPassword,
   verifyPassword,
 } from "./auth.js";
@@ -201,9 +201,9 @@ app.post("/api/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/auth", (_req, res) => {
-  const info = credentialsInfo();
-  res.json({ ok: true, apiToken: info.apiToken });
+app.get("/api/auth", (req, res) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: "Giriş gerekli" });
+  res.json({ ok: true });
 });
 
 app.get("/api/cv", (_req, res) => {
@@ -412,7 +412,7 @@ app.use(
 app.listen(PORT, BIND_HOST, () => {
   console.log(`MailPing sunucu: http://localhost:${PORT}`);
   console.log(`Pixel base URL (PUBLIC_BASE_URL): ${PUBLIC_BASE_URL}`);
-  console.log("Kilit: panel şifresi + eklenti API token (piksel/CV linki açık)");
+  console.log("Kilit: panel şifresi (piksel/CV linki açık)");
   if (ALLOWED_IPS.length) console.log(`IP kapısı: ${ALLOWED_IPS.join(", ")}`);
   else console.log("IP kapısı: kapalı (ALLOWED_IPS boş — herkes login sayfasını görür)");
   if (PUBLIC_BASE_URL.includes("localhost")) {

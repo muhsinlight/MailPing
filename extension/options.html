@@ -9,22 +9,19 @@
     input { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
     button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
     #status { margin-top: 1rem; color: #0a0; }
-    .hint { font-size: 0.85rem; color: #555; margin-top: 0.5rem; }
+    .hint { font-size: 0.85rem; color: #555; margin-top: 0.5rem; line-height: 1.45; }
   </style>
 </head>
 <body>
   <h1>MailPing ayarları</h1>
-  <label for="serverUrl">Sunucu adresi (PUBLIC_BASE_URL ile aynı)</label>
-  <input id="serverUrl" type="url" placeholder="https://tracker.sizin-domain.com" />
-  <label for="apiToken">API token (panel → Eklenti token)</label>
-  <input id="apiToken" type="password" autocomplete="off" placeholder="VPS kilidindeki token" />
   <p class="hint">
-    Chrome açıkken mail açılınca veya CV inince masaüstü bildirimi düşer (Windows Action Center, Mac Bildirim Merkezi). Sistem ayarlarında Chrome bildirimleri açık olsun.
+    Sunucu artık API token kullanmıyor. Mail göndermek ve takip için siteye giriş yapın
+    (<strong>Mail gönder</strong>).
   </p>
-  <p class="hint">
-    VPS’te panel şifre ister; eklenti bu token ile konuşur. Piksel ve CV indirme linki alıcıya açıktır.
-  </p>
-  <button id="save">Kaydet ve sına</button>
+  <label for="serverUrl">Sunucu adresi (bilgi)</label>
+  <input id="serverUrl" type="url" placeholder="https://mailping.sizin-domain.com" />
+  <p class="hint">Chrome eklentisi şu an devre dışı. Gmail’den otomatik takip ileride panel oturumu ile gelebilir.</p>
+  <button id="save">Adresi kaydet</button>
   <p id="status"></p>
   <script src="options.js"></script>
 </body>

@@ -16,7 +16,6 @@ export function loadCredentials() {
   return {
     authSecret: requiredEnv("AUTH_SECRET"),
     panelPassword: requiredEnv("PANEL_PASSWORD"),
-    apiToken: requiredEnv("API_TOKEN"),
   };
 }
 
@@ -57,13 +56,6 @@ function parseCookies(req) {
     }
   }
   return out;
-}
-
-function readBearer(req) {
-  const header = String(req.headers.authorization || "");
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  if (match) return match[1].trim();
-  return String(req.headers["x-api-token"] || "").trim();
 }
 
 function verifySession(raw) {
@@ -112,8 +104,6 @@ export function clearSessionCookie() {
 }
 
 export function isAuthenticated(req) {
-  const bearer = readBearer(req);
-  if (bearer && secretEquals(bearer, creds.apiToken)) return "token";
   if (verifySession(parseCookies(req)[COOKIE])) return "session";
   return null;
 }
@@ -134,8 +124,4 @@ export function authGate(req, res, next) {
   }
   if (req.method === "GET") return res.redirect("/login.html");
   return res.status(401).json({ error: "Giriş gerekli" });
-}
-
-export function credentialsInfo() {
-  return { apiToken: creds.apiToken };
 }

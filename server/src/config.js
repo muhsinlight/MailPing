@@ -18,6 +18,7 @@ export const smtp = {
   user: process.env.SMTP_USER,
   pass: process.env.SMTP_PASS,
   from: process.env.MAIL_FROM || process.env.SMTP_USER,
+  fromName: process.env.MAIL_FROM_NAME || "",
 };
 
 const watchRaw = process.env.NOTIFY_WATCH_RECIPIENTS;

@@ -5,29 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="/panel.css?v=rail2" />
+  <link rel="stylesheet" href="/panel.css?v=side3" />
 </head>
 <body>
   <div class="app">
-    <nav class="rail" aria-label="Ana menü">
+    <aside class="side" aria-label="Ana menü">
       <div class="mark">
-        <svg class="logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
           <rect width="32" height="32" rx="8" fill="#1c1a17"/>
           <path d="M8 12.2h16v10.2H8z" fill="none" stroke="#fffdf8" stroke-width="1.6"/>
           <path d="M8 12.6 16 18l8-5.4" fill="none" stroke="#fffdf8" stroke-width="1.6" stroke-linejoin="round"/>
           <circle cx="24.2" cy="8.6" r="3" fill="#c4654a"/>
         </svg>
+        MailPing
       </div>
-      <button id="navInbox" class="rail-btn on" type="button" aria-label="Başvurular" title="Başvurular">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6.5h16v11H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 7.2 12 13l8-5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-      </button>
-      <button id="openCompose" class="rail-btn" type="button" aria-label="Mail gönder" title="Mail gönder">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <button id="openSetup" class="rail-btn foot" type="button" aria-label="Kurulum" title="Kurulum">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </button>
-    </nav>
+      <p class="side-lede">Gönderdiğin başvurular ortada. Bir satıra bas, sağda açıldı mı gör.</p>
+      <nav class="side-nav">
+        <button id="navInbox" class="side-link on" type="button">Başvurular</button>
+        <button id="openCompose" class="btn solid wide" type="button">Mail gönder</button>
+        <button id="openSetup" class="side-link" type="button">Kurulum (CV, Gmail)</button>
+      </nav>
+    </aside>
 
     <main class="main" id="main">
       <header class="top">
@@ -115,23 +113,13 @@
         <span class="num" aria-hidden="true">3</span>
         <div>
           <strong>Bildirimi aç</strong>
-          <p>Chrome eklentisinde sunucu adresi bu site ile aynı olsun. Mail açılınca masaüstüne düşer.</p>
+          <p>Mail açılınca veya CV inince bu tarayıcıdan masaüstü bildirimi düşer.</p>
         </div>
         <div class="step-actions">
           <button id="enableLive" class="btn" type="button">Bildirimi aç</button>
         </div>
       </li>
     </ol>
-    <details class="dev">
-      <summary>Geliştirici</summary>
-      <p id="devEmpty" class="lede">Bir satır seçince piksel adresi burada durur.</p>
-      <div id="devBody" hidden>
-        <p id="devPixel" class="mono"></p>
-        <p id="devIp" class="lede"></p>
-        <button id="copyPixel" class="btn" type="button">Piksel adresini kopyala</button>
-      </div>
-      <button id="copyToken" class="btn" type="button">Eklenti tokenini kopyala</button>
-    </details>
     <div class="sheet-foot">
       <button id="logout" class="btn" type="button">Çıkış</button>
       <span class="grow"></span>
@@ -172,6 +160,6 @@
   </aside>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=rail2"></script>
+  <script src="/panel.js?v=side3"></script>
 </body>
 </html>

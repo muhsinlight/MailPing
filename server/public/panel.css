@@ -34,38 +34,50 @@ button, input, textarea, select { font: inherit; color: inherit; }
 
 .app {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 340px;
+  grid-template-columns: 220px minmax(0, 1fr) 340px;
   height: 100vh;
   overflow: hidden;
 }
 
-.rail {
+.side {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 0;
+  gap: 12px;
+  padding: 18px 14px;
   background: var(--rail);
   border-right: 1px solid var(--line);
+  min-width: 0;
 }
-.mark { margin-bottom: 8px; }
-.logo { display: block; border-radius: 8px; }
-.rail-btn {
+.mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  font-size: 1rem;
+}
+.logo { display: block; border-radius: 8px; flex: none; }
+.side-lede {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--mute);
+}
+.side-nav { display: grid; gap: 6px; margin-top: 4px; }
+.side-link {
   appearance: none;
-  width: 42px;
-  height: 42px;
+  text-align: left;
   border: 0;
-  border-radius: 12px;
   background: transparent;
-  color: var(--ink);
-  display: grid;
-  place-items: center;
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 0.92rem;
   cursor: pointer;
 }
-.rail-btn.on,
-.rail-btn:hover { background: var(--card); }
-.rail-btn.foot { margin-top: auto; }
-.rail-btn:focus-visible,
+.side-link.on,
+.side-link:hover { background: var(--card); }
+.wide { width: 100%; }
+.side-link:focus-visible,
 .btn:focus-visible,
 .segments button:focus-visible,
 .kinds button:focus-visible,
@@ -282,18 +294,25 @@ a.btn { text-decoration: none; display: inline-block; }
 }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; }
-  .rail {
-    order: 2;
+  .app { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; height: 100vh; }
+  .side {
+    order: 1;
     flex-direction: row;
-    height: auto;
-    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
     border-right: 0;
-    border-top: 1px solid var(--line);
-    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 12px;
   }
-  .mark { display: none; }
-  .rail-btn.foot { margin-top: 0; margin-left: auto; }
+  .side-lede { display: none; }
+  .side-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 0;
+    margin-left: auto;
+  }
+  .wide { width: auto; }
   .main { height: auto; padding-bottom: 24px; }
   .top { flex-direction: column; align-items: stretch; }
   .head-actions { width: 100%; }

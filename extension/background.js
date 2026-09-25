@@ -1,14 +1,8 @@
 const DEFAULT_SERVER = "http://localhost:3847";
 
 async function getSettings() {
-  const { serverUrl, apiToken } = await chrome.storage.sync.get({
-    serverUrl: DEFAULT_SERVER,
-    apiToken: "",
-  });
-  return {
-    serverUrl: (serverUrl || DEFAULT_SERVER).replace(/\/$/, ""),
-    apiToken: String(apiToken || "").trim(),
-  };
+  const { serverUrl } = await chrome.storage.sync.get({ serverUrl: DEFAULT_SERVER });
+  return { serverUrl: (serverUrl || DEFAULT_SERVER).replace(/\/$/, "") };
 }
 
 async function getServerUrl() {
@@ -16,12 +10,10 @@ async function getServerUrl() {
 }
 
 async function apiFetch(path, opts = {}) {
-  const { serverUrl, apiToken } = await getSettings();
-  const headers = { ...(opts.headers || {}) };
-  if (apiToken) headers.Authorization = `Bearer ${apiToken}`;
-  const res = await fetch(`${serverUrl}${path}`, { ...opts, headers });
+  const { serverUrl } = await getSettings();
+  const res = await fetch(`${serverUrl}${path}`, { ...opts, headers: { ...(opts.headers || {}) } });
   if (res.status === 401) {
-    throw new Error("API token yanlış veya eksik — eklenti ayarlarına yapıştırın");
+    throw new Error("Sunucu API token kullanmıyor — maili panelden gönderin");
   }
   if (res.status === 403) {
     throw new Error("Bu IP'den panele izin yok (ALLOWED_IPS)");

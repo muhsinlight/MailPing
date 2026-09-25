@@ -5,7 +5,6 @@ const state = {
   tracks: [],
   cv: null,
   gmail: null,
-  apiToken: "",
   filter: "all",
   status: "",
   query: "",
@@ -155,18 +154,6 @@ function renderSetup() {
   $("enableLive").textContent = liveOn() ? "Bildirim açık" : "Bildirimi aç";
 }
 
-function renderDev() {
-  const t = state.detail;
-  $("devEmpty").hidden = Boolean(t);
-  $("devBody").hidden = !t;
-  if (!t) return;
-  $("devPixel").textContent = t.pixelUrl || "";
-  const last = [...(t.events || [])].reverse().find((event) => event.ip);
-  $("devIp").textContent = last
-    ? `Son kayıt IP: ${last.ip}. Gmail açılışında bu adres Gmail sunucusuna aittir.`
-    : "Bu kayıtta IP yok.";
-}
-
 function browserLabel(ua) {
   const s = String(ua || "");
   if (!s) return "";
@@ -240,7 +227,6 @@ function renderDetail() {
   $("detail").dataset.open = t ? "true" : "false";
   if (!t) {
     box.innerHTML = `<p class="empty-detail">Bir başvuru seç.</p>`;
-    renderDev();
     return;
   }
   const company = String(t.company || "").trim();
@@ -263,7 +249,6 @@ function renderDetail() {
     </div>
     <ol class="timeline">${sent}${events}</ol>
   `;
-  renderDev();
 }
 
 function syncBackdrop() {
@@ -391,14 +376,9 @@ function maybeOpenSetup() {
 
 async function refreshMeta() {
   await checkSignals().catch(() => {});
-  const [cvRes, gmailRes, authRes] = await Promise.all([
-    api("/api/cv"),
-    api("/api/gmail/status"),
-    api("/api/auth"),
-  ]);
+  const [cvRes, gmailRes] = await Promise.all([api("/api/cv"), api("/api/gmail/status")]);
   if (cvRes.ok) state.cv = (await cvRes.json()).cv;
   if (gmailRes.ok) state.gmail = await gmailRes.json();
-  if (authRes.ok) state.apiToken = (await authRes.json()).apiToken || "";
   renderSetup();
   if (state.openId) {
     const res = await api(`/api/tracks/${state.openId}`);
@@ -577,29 +557,6 @@ $("gmailDisconnect").addEventListener("click", async () => {
 });
 
 $("enableLive").addEventListener("click", () => enableLiveSignal());
-
-$("copyPixel").addEventListener("click", async () => {
-  if (!state.detail?.pixelUrl) return;
-  try {
-    await navigator.clipboard.writeText(state.detail.pixelUrl);
-    toast("Kopyalandı");
-  } catch {
-    toast("Kopyalanamadı");
-  }
-});
-
-$("copyToken").addEventListener("click", async () => {
-  if (!state.apiToken) {
-    toast("Token yok");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(state.apiToken);
-    toast("Token kopyalandı");
-  } catch {
-    toast("Kopyalanamadı");
-  }
-});
 
 function parseRecipients(raw) {
   return [...new Set(

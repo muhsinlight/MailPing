@@ -28,7 +28,7 @@ function appendHtml(html, snippet) {
 
 function buildCvHtml(url, fileName) {
   const label = escapeHtml(fileName || "PDF");
-  return `<p style="margin:16px 0;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5"><a href="${url}" style="color:#0b6e4f">${label}</a></p>`;
+  return `<p style="margin:16px 0;font-family:system-ui,sans-serif;font-size:14px;line-height:1.5"><a href="${url}" style="color:#1c1a17">${label}</a></p>`;
 }
 
 let transporter;
@@ -67,6 +67,13 @@ export async function sendPanelPassword(to, password) {
       "Eski şifre artık geçmez. Bu mesajı senden başkası istediyse şifreyi yine senin kutuna gönderdik.",
     ].join("\n"),
   });
+}
+
+function personFrom(email) {
+  const clean = String(email || "").replace(/[\r\n]+/g, " ").trim();
+  const name = String(smtp.fromName || "").replace(/"/g, "").trim();
+  if (!name || clean.includes("<")) return clean;
+  return `"${name}" <${clean}>`;
 }
 
 function fromHeader() {
@@ -109,7 +116,7 @@ export async function sendTrackedEmail({
     throw new Error("SMTP yapılandırılmamış (SMTP_USER / SMTP_PASS)");
   }
 
-  const from = String(fromEmail || smtp.from || "").replace(/[\r\n]+/g, " ").trim();
+  const from = personFrom(fromEmail || smtp.from || "");
   const { track, pixelHtml, pixelUrl: url, cvHtml } = createTrackWithPixel({
     toEmail,
     subject,

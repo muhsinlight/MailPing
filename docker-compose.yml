@@ -8,7 +8,6 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-true}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?}
       PANEL_PASSWORD: ${PANEL_PASSWORD:?}
-      API_TOKEN: ${API_TOKEN:?}
       AUTH_SECRET: ${AUTH_SECRET:?}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}

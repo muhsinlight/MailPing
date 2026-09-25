@@ -24,8 +24,7 @@ Panel: `http://localhost:3847/` → şifre ister.
 |--------|--------|
 | **Gmail Web** | Chrome eklentisi — Gönder’de piksel (+ CV linki) |
 | **Outlook Web** | Aynı eklenti |
-| **SMTP / API** | `POST /api/send` + `Authorization: Bearer` |
-| **Manuel** | `POST /api/tracks` → `pixelHtml` / `cvHtml` |
+| **Panel** | **Mail gönder** — oturum çerezi ile `POST /api/send` |
 
 Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmesi.
 
@@ -46,7 +45,7 @@ Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmes
 | Katman | Ne | Kim geçer |
 |--------|----|-----------|
 | **1. IP kapısı** (isteğe bağlı) | `ALLOWED_IPS` | Yalnız listedeki IP’ler login/API görür |
-| **2. Kimlik** | Panel şifresi + eklenti token | Şifre veya `Bearer API_TOKEN` |
+| **2. Kimlik** | Panel şifresi + oturum çerezi | Giriş yaptıktan sonra tarayıcı |
 
 **Açık kalan uçlar** (alıcı / Gmail proxy):
 
@@ -58,7 +57,7 @@ Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmes
 
 **Kilitli uçlar:** panel, `/api/cv`, `/api/cv/file`, `/api/tracks`, `/api/send`, `/api/signals`, Gmail bağla/çek/kopar.
 
-Panel şifresi, eklenti token’ı ve cookie imzası `.env` içindedir (`PANEL_PASSWORD`, `API_TOKEN`, `AUTH_SECRET`). Bu dosyayı git’e koymayın.
+Panel şifresi ve cookie imzası `.env` içindedir (`PANEL_PASSWORD`, `AUTH_SECRET`). Bu dosyayı git’e koymayın.
 
 ## Kurulum
 
@@ -69,15 +68,14 @@ npm install
 npm run keys
 ```
 
-`npm run keys` üç satır basar. Komut `server` klasöründe çalışır; proje kökünden de aynı komut yeter. Çıktıyı `server/.env` içine yapıştırın, sonra `npm start`.
+`npm run keys` iki satır basar. Komut `server` klasöründe çalışır; proje kökünden de aynı komut yeter. Çıktıyı `server/.env` içine yapıştırın, sonra `npm start`.
 
 | Satır | Ne |
 |--------|-----|
 | `PANEL_PASSWORD` | Panel giriş şifresi. Bunu siz de seçebilirsiniz; uzun ve tahmin edilmesi zor olsun. |
-| `API_TOKEN` | Eklenti ve API anahtarı. Rastgele kalsın. |
 | `AUTH_SECRET` | Oturum çerezinin imzası. Rastgele kalsın. |
 
-Sunucu bu üçünü kendisi üretmez; biri boşsa açılmaz. Sonradan `AUTH_SECRET` değişirse açık oturumlar kapanır. `API_TOKEN` değişirse eklenti ayarına yeni token yazılır.
+Sunucu bunları kendisi üretmez; biri boşsa açılmaz. `AUTH_SECRET` değişirse açık oturumlar kapanır.
 
 Tarayıcı: [http://localhost:3847/](http://localhost:3847/) → **Panel kilidi**. Şifre `.env` içindeki `PANEL_PASSWORD`.
 
@@ -86,7 +84,7 @@ Tarayıcı: [http://localhost:3847/](http://localhost:3847/) → **Panel kilidi*
 ```
 PUBLIC_BASE_URL=https://SIZIN-ACIK-URL
 PANEL_PASSWORD=uzun-sifre
-API_TOKEN=uzun-rastgele-token
+AUTH_SECRET=uzun-rastgele
 SMTP_USER=...@gmail.com
 SMTP_PASS=uygulama-sifresi
 NOTIFY_TO=...@gmail.com
@@ -97,7 +95,6 @@ NOTIFY_WATCH_RECIPIENTS=*
 |----------|----------------|
 | `PUBLIC_BASE_URL` | Maile yazılan piksel/CV adresi. Eklenti URL’si ile aynı olsun. |
 | `PANEL_PASSWORD` | Panel girişi. |
-| `API_TOKEN` | Chrome eklentisi ve `POST /api/send` / `/api/tracks`. |
 | `ALLOWED_IPS` | İsteğe bağlı. Örnek: `127.0.0.1,203.0.113.10` — yalnız panel. Piksel yine herkese açık. |
 | `TRUST_PROXY` | Nginx / Cloudflare arkasında `true`. Yoksa `X-Forwarded-For` sahte IP sayılır. |
 | `AUTH_SECRET` | Cookie imzası. |
@@ -114,10 +111,9 @@ GOOGLE_REDIRECT_URI=https://SIZIN-ACIK-URL/api/gmail/callback
 
 1. Panele şifre ile girin.
 2. **PDF yükle** (CV).
-3. Sağ üstte **Eklenti token** → kopyalayın (eklenti ayarına yapıştırılacak).
-4. **Gönderilenleri çek** (veya Google ile bağla).
-5. Chrome eklentisini yükleyin — yeni başvuru maillerinde takip + CV linki eklenir.
-6. Sağ üstte **Canlı** → bildirim izni verin. Eklenti yüklüyse Chrome açıkken de düşer.
+3. **Gönderilenleri çek** (veya Google ile bağla).
+4. **Mail gönder** ile yeni başvuru atın (CV kutusu isteğe bağlı).
+5. **Canlı** → bildirim izni verin.
 
 ### Test maili
 
@@ -125,7 +121,7 @@ GOOGLE_REDIRECT_URI=https://SIZIN-ACIK-URL/api/gmail/callback
 npm run send-test
 ```
 
-`API_TOKEN` `.env` içinden okunur. Maili açıp görselleri yükleyin; panelde açıldı görünmeli.
+`PANEL_PASSWORD` ile panele giriş yapılır. Maili açıp görselleri yükleyin; panelde açıldı görünmeli.
 
 ## Coolify
 
@@ -139,9 +135,9 @@ cloudflared tunnel token mailping
 
 Çıkan değeri Coolify ortam değişkenine `TUNNEL_TOKEN` diye yazın. Repoya koymayın.
 
-2. Cloudflare Zero Trust → Tunnels → `mailping` → Public Hostname: `mailpig.muhsinlight.com.tr` → servis `http://mailping:3847`. Bu adres Compose ağıdır; sunucunun herkese açık IP’si değildir.
+2. Cloudflare Zero Trust → Tunnels → `mailping` → Public Hostname: `mailping.muhsinlight.com.tr` → servis `http://mailping:3847`. Bu adres Compose ağıdır; sunucunun herkese açık IP’si değildir.
 
-3. Coolify → New Resource → Docker Compose. Kökteki `docker-compose.yml`. Environment Variables: `TUNNEL_TOKEN`, `PUBLIC_BASE_URL` (`https://mailpig.muhsinlight.com.tr`), `PANEL_PASSWORD`, `API_TOKEN`, `AUTH_SECRET`, SMTP alanları.
+3. Coolify → New Resource → Docker Compose. Kökteki `docker-compose.yml`. Environment Variables: `TUNNEL_TOKEN`, `PUBLIC_BASE_URL` (`https://mailping.muhsinlight.com.tr`), `PANEL_PASSWORD`, `AUTH_SECRET`, SMTP alanları.
 
 4. Deploy edin. Bu bilgisayardaki tünel sürecini kapatın. İkisi birden açıksa isteklerin yarısı hâlâ evdeki `localhost`a gider.
 
@@ -151,14 +147,11 @@ cloudflared tunnel token mailping
 
 ## Chrome eklentisi
 
-1. `chrome://extensions` → Geliştirici modu → **Paketlenmemiş öğe yükle** → `extension`.
-2. Panelde giriş → **Eklenti token**.
-3. Uzantı seçenekleri → sunucu URL + API token. VPS domain’inde Chrome izin penceresini onaylayın.
-4. Gmail / Outlook Web’de **Gönder**.
+Şu an **devre dışı** (sunucu API token kullanmıyor). Mail göndermek ve takip için panele girin.
 
-Token yoksa veya yanlışsa track oluşmaz (Gönder yine gider; takip eklenmez).
+Eklenti yeniden açıldığında panel oturumu ile çalışacak şekilde güncellenecek. Masaüstü bildirimi için panelde **Canlı** yeterli:
 
-Eklenti **dakikada bir** sunucuyu sorar. Mail açılınca veya CV inince:
+Eklenti **dakikada bir** sunucuyu sorar (gelecek sürüm). Mail açılınca veya CV inince:
 
 - **Windows** → Action Center
 - **Mac** → Bildirim Merkezi
@@ -169,40 +162,25 @@ Eski “Mail Tracker” eklentisini kaldırın; ikisi çift piksel ekler.
 
 ## API
 
-Tüm `/api/*` (login, Gmail callback, health hariç) kimlik ister: panel cookie **veya** `Authorization: Bearer API_TOKEN`.
+Tüm `/api/*` (login, Gmail callback, health hariç) **panel oturum çerezi** ister. Harici Bearer token yok.
 
-**Piksel (mailı siz gönderirsiniz)**
-
-```http
-POST /api/tracks
-Authorization: Bearer API_TOKEN
-Content-Type: application/json
-
-{ "toEmail": "alici@firma.com", "subject": "Teklif", "source": "crm" }
-```
-
-`pixelHtml` / `cvHtml` gövdeye yapıştırılır.
-
-**SMTP ile gönder**
+**Panelden mail gönder** (tarayıcıda giriş yaptıktan sonra):
 
 ```http
 POST /api/send
-Authorization: Bearer API_TOKEN
+Cookie: mp=...
 Content-Type: application/json
 
-{ "toEmail": "alici@firma.com", "subject": "Merhaba", "html": "<p>İçerik</p>", "source": "smtp" }
+{ "toEmail": "alici@firma.com", "subject": "Merhaba", "text": "...", "source": "panel", "includeCv": false }
 ```
 
-**Canlı sinyal**
+**Canlı sinyal** (aynı oturum):
 
 ```http
 GET /api/signals?after=2026-09-24T09:00:00.000Z
-Authorization: Bearer API_TOKEN
 ```
 
-`open` ve `cv` olaylarını döner. Eklenti ve panel bunu kullanır.
-
-**Gmail** (panel oturumu veya token)
+**Gmail** (panel oturumu)
 
 - `GET /api/gmail/status`
 - `POST /api/gmail/sync` — OAuth varsa API, yoksa IMAP
@@ -213,7 +191,7 @@ Okundu e-postası: `NOTIFY_WATCH_RECIPIENTS=*` veya `a@x.com,b@y.com`.
 ## Proje yapısı
 
 - `server/` — Express, SQLite, piksel, CV, Gmail, panel
-  - `src/auth.js` — şifre, session cookie, API token
+  - `src/auth.js` — şifre, session cookie
   - `src/security.js` — IP kapısı, güvenlik başlıkları, rate limit
 - `extension/` — Gmail / Outlook + masaüstü bildirimi
 - `server/data/` — veritabanı ve CV PDF (git’te yok)
