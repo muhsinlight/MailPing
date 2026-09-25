@@ -1,57 +1,21 @@
-import fs from "fs";
-import path from "path";
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { fileURLToPath } from "url";
+import { createHmac, timingSafeEqual } from "crypto";
 import { PUBLIC_BASE_URL } from "./config.js";
 import { isLoginPublic, isTrackingPublic } from "./security.js";
 
-const dataDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
-const secretsPath = path.join(dataDir, "secrets.json");
 const COOKIE = "mp";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 
-function readSecretsFile() {
-  try {
-    return JSON.parse(fs.readFileSync(secretsPath, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-function writeSecretsFile(data) {
-  fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(secretsPath, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+function requiredEnv(name) {
+  const value = String(process.env[name] || "").trim();
+  if (!value) throw new Error(`${name} .env içinde gerekli`);
+  return value;
 }
 
 export function loadCredentials() {
-  const file = readSecretsFile();
-  const generated = [];
-  const next = { ...file };
-
-  if (!(process.env.AUTH_SECRET || next.authSecret)) {
-    next.authSecret = randomBytes(32).toString("hex");
-    generated.push("authSecret");
-  }
-  if (!(process.env.PANEL_PASSWORD || next.panelPassword)) {
-    next.panelPassword = randomBytes(12).toString("base64url");
-    generated.push("panelPassword");
-  }
-  if (!(process.env.API_TOKEN || next.apiToken)) {
-    next.apiToken = randomBytes(32).toString("hex");
-    generated.push("apiToken");
-  }
-
-  if (generated.length) writeSecretsFile(next);
-  else if (!fs.existsSync(secretsPath) && !process.env.AUTH_SECRET) {
-    writeSecretsFile({ authSecret: next.authSecret });
-  }
-
   return {
-    authSecret: process.env.AUTH_SECRET || next.authSecret,
-    panelPassword: process.env.PANEL_PASSWORD || next.panelPassword,
-    apiToken: process.env.API_TOKEN || next.apiToken,
-    generated,
-    secretsPath,
+    authSecret: requiredEnv("AUTH_SECRET"),
+    panelPassword: requiredEnv("PANEL_PASSWORD"),
+    apiToken: requiredEnv("API_TOKEN"),
   };
 }
 
@@ -159,13 +123,5 @@ export function authGate(req, res, next) {
 }
 
 export function credentialsInfo() {
-  return {
-    apiToken: creds.apiToken,
-    secretsPath: creds.secretsPath,
-    generated: creds.generated,
-    fromEnv: {
-      password: Boolean(process.env.PANEL_PASSWORD),
-      token: Boolean(process.env.API_TOKEN),
-    },
-  };
+  return { apiToken: creds.apiToken };
 }

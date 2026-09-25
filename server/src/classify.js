@@ -141,6 +141,51 @@ export function isCompanyTarget(email) {
   return true;
 }
 
+const SECOND_LEVEL = new Set([
+  "com.tr",
+  "net.tr",
+  "org.tr",
+  "gen.tr",
+  "gov.tr",
+  "edu.tr",
+  "bel.tr",
+  "k12.tr",
+  "co.uk",
+  "org.uk",
+  "ac.uk",
+  "com.br",
+  "com.au",
+]);
+
+function titleWord(value) {
+  const clean = String(value || "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+  if (!clean) return "";
+  return clean
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+export function companyFromEmail(email) {
+  const raw = String(email || "").trim().toLowerCase();
+  const at = raw.lastIndexOf("@");
+  if (at < 1 || at === raw.length - 1) return "";
+  if (isConsumerInbox(raw)) return "";
+  const parts = raw
+    .slice(at + 1)
+    .replace(/\.$/, "")
+    .split(".")
+    .filter(Boolean);
+  if (!parts.length) return "";
+  const tail2 = parts.slice(-2).join(".");
+  let label = parts.length === 1 ? parts[0] : parts[parts.length - 2];
+  if (SECOND_LEVEL.has(tail2) && parts.length >= 3) label = parts[parts.length - 3];
+  return titleWord(label);
+}
+
 function topicOf(track) {
   const text = haystack(track);
   const email = String(track.to_email || "").toLowerCase();

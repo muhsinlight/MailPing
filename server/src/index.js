@@ -48,7 +48,7 @@ import {
   credentialsInfo,
   verifyPassword,
 } from "./auth.js";
-import { clientIp, ipGate, rateLimit, securityHeaders } from "./security.js";
+import { clientIp, createAttemptGuard, ipGate, securityHeaders } from "./security.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -85,22 +85,48 @@ function requireToEmail(req, res) {
   return req.body;
 }
 
-const loginLimit = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 8,
-  keyFn: (req) => clientIp(req, TRUST_PROXY),
-});
+const loginAttempts = createAttemptGuard();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/login", loginLimit, (req, res) => {
-  if (!verifyPassword(req.body?.password)) {
-    return res.status(401).json({ error: "Şifre yanlış" });
-  }
-  res.setHeader("Set-Cookie", createSessionCookie());
-  res.json({ ok: true });
+app.post("/api/login", (req, res, next) => {
+  const ip = clientIp(req, TRUST_PROXY);
+  loginAttempts
+    .run(ip, async () => {
+      const blocked = loginAttempts.status(ip);
+      if (blocked.locked) {
+        res.set("Retry-After", String(blocked.retryAfter));
+        res.status(429).json({
+          error: "Çok fazla deneme, biraz bekleyin",
+          retryAfter: blocked.retryAfter,
+        });
+        return;
+      }
+      if (!verifyPassword(req.body?.password)) {
+        const result = loginAttempts.fail(ip);
+        if (result.delayMs) await sleep(result.delayMs);
+        if (result.locked) {
+          res.set("Retry-After", String(result.retryAfter));
+          res.status(429).json({
+            error: "Çok fazla deneme, biraz bekleyin",
+            retryAfter: result.retryAfter,
+          });
+          return;
+        }
+        res.status(401).json({ error: "Şifre yanlış" });
+        return;
+      }
+      loginAttempts.ok(ip);
+      res.setHeader("Set-Cookie", createSessionCookie());
+      res.json({ ok: true });
+    })
+    .catch(next);
 });
 
 app.post("/api/logout", (_req, res) => {
@@ -310,16 +336,11 @@ app.use(
 );
 
 app.listen(PORT, BIND_HOST, () => {
-  const info = credentialsInfo();
   console.log(`MailPing sunucu: http://localhost:${PORT}`);
   console.log(`Pixel base URL (PUBLIC_BASE_URL): ${PUBLIC_BASE_URL}`);
   console.log("Kilit: panel şifresi + eklenti API token (piksel/CV linki açık)");
   if (ALLOWED_IPS.length) console.log(`IP kapısı: ${ALLOWED_IPS.join(", ")}`);
   else console.log("IP kapısı: kapalı (ALLOWED_IPS boş — herkes login sayfasını görür)");
-  if (info.generated.length) {
-    console.log(`İlk kurulum kimliği yazıldı: ${info.secretsPath}`);
-    console.log("Panel şifresi ve eklenti token'ı bu dosyada. VPS'te .env'e taşımanız daha iyi.");
-  }
   if (PUBLIC_BASE_URL.includes("localhost")) {
     console.warn(
       "UYARI: Okundu takibi için PUBLIC_BASE_URL internetten erişilebilir olmalı (VPS, ngrok, Cloudflare Tunnel)."

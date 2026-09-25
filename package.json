@@ -1,0 +1,8 @@
+{
+  "name": "mailping",
+  "private": true,
+  "scripts": {
+    "keys": "npm run keys --prefix server",
+    "start": "npm start --prefix server"
+  }
+}

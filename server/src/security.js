@@ -10,6 +10,8 @@ export function normalizeIp(ip) {
 
 export function clientIp(req, trustProxy) {
   if (trustProxy) {
+    const cf = req.headers["cf-connecting-ip"];
+    if (cf) return normalizeIp(String(cf).split(",")[0]);
     const forwarded = req.headers["x-forwarded-for"];
     if (forwarded) return normalizeIp(String(forwarded).split(",")[0]);
   }
@@ -71,25 +73,70 @@ export function ipGate({ allowedIps, trustProxy }) {
   };
 }
 
-export function rateLimit({ windowMs, max, keyFn }) {
+export function createAttemptGuard({
+  maxFailures = 5,
+  lockMs = 15 * 60 * 1000,
+  delays = [1000, 2000, 4000, 8000],
+} = {}) {
   const buckets = new Map();
-  return (req, res, next) => {
-    const key = keyFn(req);
-    const now = Date.now();
+  const tails = new Map();
+
+  function state(key, now) {
     let bucket = buckets.get(key);
-    if (!bucket || now - bucket.start > windowMs) {
-      bucket = { start: now, n: 0 };
+    if (!bucket) {
+      bucket = { failures: 0, lockedUntil: 0 };
       buckets.set(key, bucket);
     }
-    bucket.n += 1;
-    if (bucket.n > max) {
-      return res.status(429).json({ error: "Çok fazla deneme, biraz bekleyin" });
+    if (bucket.lockedUntil && now >= bucket.lockedUntil) {
+      bucket.failures = 0;
+      bucket.lockedUntil = 0;
     }
-    if (buckets.size > 2000) {
-      for (const [id, item] of buckets) {
-        if (now - item.start > windowMs) buckets.delete(id);
-      }
+    return bucket;
+  }
+
+  function status(key, now = Date.now()) {
+    const bucket = state(key, now);
+    if (bucket.lockedUntil > now) {
+      return { locked: true, retryAfter: Math.ceil((bucket.lockedUntil - now) / 1000) };
     }
-    next();
-  };
+    return { locked: false, retryAfter: 0 };
+  }
+
+  function fail(key, now = Date.now()) {
+    const bucket = state(key, now);
+    if (bucket.lockedUntil > now) {
+      return {
+        locked: true,
+        retryAfter: Math.ceil((bucket.lockedUntil - now) / 1000),
+        delayMs: 0,
+      };
+    }
+    const delayMs = delays[Math.min(bucket.failures, delays.length - 1)] ?? 1000;
+    bucket.failures += 1;
+    if (bucket.failures >= maxFailures) {
+      bucket.lockedUntil = now + lockMs;
+      return { locked: true, retryAfter: Math.ceil(lockMs / 1000), delayMs };
+    }
+    return { locked: false, retryAfter: 0, delayMs };
+  }
+
+  function ok(key) {
+    buckets.delete(key);
+  }
+
+  function run(key, fn) {
+    const prev = tails.get(key) || Promise.resolve();
+    const runP = prev.then(() => fn());
+    const tracked = runP.then(
+      () => {},
+      () => {}
+    );
+    tails.set(key, tracked);
+    tracked.finally(() => {
+      if (tails.get(key) === tracked) tails.delete(key);
+    });
+    return runP;
+  }
+
+  return { status, fail, ok, run };
 }

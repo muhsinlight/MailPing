@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
-import { statusFilter, topicFilter } from "./classify.js";
+import { companyFromEmail, statusFilter, topicFilter } from "./classify.js";
 
 const dataDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data");
 fs.mkdirSync(dataDir, { recursive: true });
@@ -63,14 +63,25 @@ ensureColumn("tracks", "last_cv_download_ip", "last_cv_download_ip TEXT");
 ensureColumn("tracks", "last_cv_download_ua", "last_cv_download_ua TEXT");
 ensureColumn("tracks", "gmail_id", "gmail_id TEXT");
 ensureColumn("tracks", "has_pixel", "has_pixel INTEGER NOT NULL DEFAULT 1");
+ensureColumn("tracks", "company", "company TEXT");
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS tracks_gmail_id ON tracks(gmail_id) WHERE gmail_id IS NOT NULL"
 );
 
+{
+  const setCompany = db.prepare("UPDATE tracks SET company = ? WHERE id = ?");
+  const fillCompany = db.transaction(() => {
+    for (const row of db.prepare("SELECT id, to_email FROM tracks").all()) {
+      setCompany.run(companyFromEmail(row.to_email), row.id);
+    }
+  });
+  fillCompany();
+}
+
 const sql = {
   insert: db.prepare(`
-    INSERT INTO tracks (id, to_email, subject, from_email, created_at, source)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO tracks (id, to_email, subject, from_email, created_at, source, company)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `),
   get: db.prepare("SELECT * FROM tracks WHERE id = ?"),
   list: db.prepare("SELECT * FROM tracks ORDER BY created_at DESC LIMIT ?"),
@@ -128,8 +139,8 @@ const sql = {
   deleteSetting: db.prepare("DELETE FROM app_settings WHERE key = ?"),
   getByGmailId: db.prepare("SELECT * FROM tracks WHERE gmail_id = ?"),
   insertImported: db.prepare(`
-    INSERT INTO tracks (id, to_email, subject, from_email, created_at, source, gmail_id, has_pixel)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+    INSERT INTO tracks (id, to_email, subject, from_email, created_at, source, gmail_id, has_pixel, company)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
   `),
 };
 
@@ -150,14 +161,16 @@ export function importMail({ id, toEmail, subject, fromEmail, createdAt, source,
     const existing = sql.getByGmailId.get(gmailId);
     if (existing) return { track: existing, created: false };
   }
+  const to = toEmail || "(alıcı yok)";
   sql.insertImported.run(
     id,
-    toEmail || "(alıcı yok)",
+    to,
     subject ?? "",
     fromEmail ?? "",
     createdAt || new Date().toISOString(),
     source ?? "gmail",
-    gmailId ?? null
+    gmailId ?? null,
+    companyFromEmail(to)
   );
   return { track: sql.get.get(id), created: true };
 }
@@ -169,7 +182,8 @@ export function createTrack({ id, toEmail, subject, fromEmail, source }) {
     subject ?? "",
     fromEmail ?? "",
     new Date().toISOString(),
-    source ?? "api"
+    source ?? "api",
+    companyFromEmail(toEmail)
   );
   return sql.get.get(id);
 }
@@ -194,9 +208,9 @@ function filterClause(kind, status, query) {
   if (statusSql) where.push(statusSql);
   const q = String(query || "").trim();
   if (q) {
-    where.push("(to_email LIKE ? OR subject LIKE ? OR source LIKE ?)");
+    where.push("(to_email LIKE ? OR subject LIKE ? OR source LIKE ? OR company LIKE ?)");
     const like = `%${q}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
   return {
     where: where.length ? `WHERE ${where.join(" AND ")}` : "",

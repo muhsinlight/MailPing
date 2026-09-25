@@ -1,6 +1,3 @@
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
 import { PUBLIC_BASE_URL, smtp } from "../src/config.js";
 
 const to = process.env.MAIL_TO;
@@ -9,19 +6,9 @@ if (!smtp.user || !smtp.pass || !to) {
   process.exit(1);
 }
 
-function apiToken() {
-  if (process.env.API_TOKEN) return process.env.API_TOKEN;
-  try {
-    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "data", "secrets.json");
-    return JSON.parse(fs.readFileSync(file, "utf8")).apiToken || "";
-  } catch {
-    return "";
-  }
-}
-
-const token = apiToken();
+const token = String(process.env.API_TOKEN || "").trim();
 if (!token) {
-  console.error("API_TOKEN yok. Sunucuyu bir kez başlatın veya .env'e ekleyin.");
+  console.error("API_TOKEN .env içinde gerekli.");
   process.exit(1);
 }
 

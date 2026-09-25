@@ -58,7 +58,7 @@ Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmes
 
 **Kilitli uçlar:** panel, `/api/cv`, `/api/cv/file`, `/api/tracks`, `/api/send`, `/api/signals`, Gmail bağla/çek/kopar.
 
-Şifre veya token yoksa ilk `npm start` onları `server/data/secrets.json` içine yazar. VPS’te bu değerleri `.env`’e taşıyın; dosyayı git’e koymayın (`server/data/` zaten ignore).
+Panel şifresi, eklenti token’ı ve cookie imzası `.env` içindedir (`PANEL_PASSWORD`, `API_TOKEN`, `AUTH_SECRET`). Bu dosyayı git’e koymayın.
 
 ## Kurulum
 
@@ -66,10 +66,20 @@ Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmes
 cd server
 copy .env.example .env
 npm install
-npm start
+npm run keys
 ```
 
-Tarayıcı: [http://localhost:3847/](http://localhost:3847/) → **Panel kilidi**. Şifre `server/data/secrets.json` → `panelPassword` (veya `.env` `PANEL_PASSWORD`).
+`npm run keys` üç satır basar. Komut `server` klasöründe çalışır; proje kökünden de aynı komut yeter. Çıktıyı `server/.env` içine yapıştırın, sonra `npm start`.
+
+| Satır | Ne |
+|--------|-----|
+| `PANEL_PASSWORD` | Panel giriş şifresi. Bunu siz de seçebilirsiniz; uzun ve tahmin edilmesi zor olsun. |
+| `API_TOKEN` | Eklenti ve API anahtarı. Rastgele kalsın. |
+| `AUTH_SECRET` | Oturum çerezinin imzası. Rastgele kalsın. |
+
+Sunucu bu üçünü kendisi üretmez; biri boşsa açılmaz. Sonradan `AUTH_SECRET` değişirse açık oturumlar kapanır. `API_TOKEN` değişirse eklenti ayarına yeni token yazılır.
+
+Tarayıcı: [http://localhost:3847/](http://localhost:3847/) → **Panel kilidi**. Şifre `.env` içindeki `PANEL_PASSWORD`.
 
 `.env` özeti:
 
@@ -90,7 +100,7 @@ NOTIFY_WATCH_RECIPIENTS=*
 | `API_TOKEN` | Chrome eklentisi ve `POST /api/send` / `/api/tracks`. |
 | `ALLOWED_IPS` | İsteğe bağlı. Örnek: `127.0.0.1,203.0.113.10` — yalnız panel. Piksel yine herkese açık. |
 | `TRUST_PROXY` | Nginx / Cloudflare arkasında `true`. Yoksa `X-Forwarded-For` sahte IP sayılır. |
-| `AUTH_SECRET` | Cookie imzası. Boşsa `secrets.json` üretir. |
+| `AUTH_SECRET` | Cookie imzası. |
 
 Gmail gönderilenlerini çekmek için SMTP hesabı Gmail + uygulama şifresi olsun (IMAP). İsteğe bağlı OAuth:
 
@@ -115,22 +125,27 @@ GOOGLE_REDIRECT_URI=https://SIZIN-ACIK-URL/api/gmail/callback
 npm run send-test
 ```
 
-`API_TOKEN` `.env` veya `secrets.json` içinden okunur. Maili açıp görselleri yükleyin; panelde açıldı görünmeli.
+`API_TOKEN` `.env` içinden okunur. Maili açıp görselleri yükleyin; panelde açıldı görünmeli.
 
-## VPS
+## Coolify
 
-1. Sunucuya kodu alın, Node 18+ kurun, `server/.env` doldurun (`PUBLIC_BASE_URL=https://tracker.domain.com`).
-2. `PANEL_PASSWORD` ve `API_TOKEN` mutlaka `.env`’de olsun (üretimde `secrets.json`’a güvenmeyin).
-3. Nginx + Let’s Encrypt ile HTTPS. `TRUST_PROXY=true`.
-4. `pm2` ile sürekli çalıştırın:
+Repo kökündeki `docker-compose.yml` iki servis kurar: MailPing ve Cloudflare tüneli. VPS’te 3847 portu açılmaz. İnternet sadece tünelden gelir. Veritabanı ve CV, `mailping-data` volume’unda kalır.
+
+1. Bu bilgisayarda, `server` klasöründe değil, tünelin kurulu olduğu makinede:
 
 ```bash
-npm install -g pm2
-cd server && pm2 start src/index.js --name mailping
-pm2 save && pm2 startup
+cloudflared tunnel token mailping
 ```
 
-5. Eklenti seçeneklerinde sunucu URL’si `PUBLIC_BASE_URL` ile aynı + API token. Kaydederken Chrome host izni ister.
+Çıkan değeri Coolify ortam değişkenine `TUNNEL_TOKEN` diye yazın. Repoya koymayın.
+
+2. Cloudflare Zero Trust → Tunnels → `mailping` → Public Hostname: `mailpig.muhsinlight.com.tr` → servis `http://mailping:3847`. Bu adres Compose ağıdır; sunucunun herkese açık IP’si değildir.
+
+3. Coolify → New Resource → Docker Compose. Kökteki `docker-compose.yml`. Environment Variables: `TUNNEL_TOKEN`, `PUBLIC_BASE_URL` (`https://mailpig.muhsinlight.com.tr`), `PANEL_PASSWORD`, `API_TOKEN`, `AUTH_SECRET`, SMTP alanları.
+
+4. Deploy edin. Bu bilgisayardaki tünel sürecini kapatın. İkisi birden açıksa isteklerin yarısı hâlâ evdeki `localhost`a gider.
+
+`server/data` içindeki mevcut veritabanını taşıyacaksanız, volume’u doldurmadan önce dosyaları kopyalayın.
 
 İsteğe bağlı sıkılaştırma: `ALLOWED_IPS=ev.ip.adresiniz`. Ev IP’si değişirse hem panel hem eklenti 403 alır; piksel çalışmaya devam eder.
 
@@ -201,7 +216,7 @@ Okundu e-postası: `NOTIFY_WATCH_RECIPIENTS=*` veya `a@x.com,b@y.com`.
   - `src/auth.js` — şifre, session cookie, API token
   - `src/security.js` — IP kapısı, güvenlik başlıkları, rate limit
 - `extension/` — Gmail / Outlook + masaüstü bildirimi
-- `server/data/` — veritabanı, CV PDF, `secrets.json` (git’te yok)
+- `server/data/` — veritabanı ve CV PDF (git’te yok)
 
 ## Sınırlamalar
 

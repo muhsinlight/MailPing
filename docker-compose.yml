@@ -1,0 +1,50 @@
+services:
+  mailping:
+    build: ./server
+    restart: unless-stopped
+    environment:
+      PORT: "3847"
+      BIND_HOST: "0.0.0.0"
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?}
+      PANEL_PASSWORD: ${PANEL_PASSWORD:?}
+      API_TOKEN: ${API_TOKEN:?}
+      AUTH_SECRET: ${AUTH_SECRET:?}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_TO: ${MAIL_TO:-}
+      NOTIFY_TO: ${NOTIFY_TO:-}
+      NOTIFY_WATCH_RECIPIENTS: ${NOTIFY_WATCH_RECIPIENTS:-*}
+      NOTIFY_FROM_NAME: ${NOTIFY_FROM_NAME:-MailTracker update}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-}
+      ALLOWED_IPS: ${ALLOWED_IPS:-}
+    volumes:
+      - mailping-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3847/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.9.3
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?}
+    depends_on:
+      mailping:
+        condition: service_healthy
+
+volumes:
+  mailping-data:

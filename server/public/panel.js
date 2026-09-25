@@ -115,14 +115,32 @@ function renderGmail() {
   $("gmailDisconnect").hidden = !g.oauthConnected;
 }
 
+function browserLabel(ua) {
+  const s = String(ua || "");
+  if (!s) return "";
+  if (/GoogleImageProxy|ggpht\.com|Google-Firebase/i.test(s)) return "Gmail görsel proxy";
+  if (/Outlook|Microsoft Office/i.test(s)) return "Outlook";
+  if (/Thunderbird/i.test(s)) return "Thunderbird";
+  if (/Edg\//.test(s)) return "Edge";
+  if (/Chrome\//.test(s) && /Safari\//.test(s)) return "Chrome";
+  if (/Firefox\//.test(s)) return "Firefox";
+  if (/Safari\//.test(s)) return "Safari";
+  return s.length > 72 ? `${s.slice(0, 72)}…` : s;
+}
+
 function cardHtml(t) {
   const when = t.last_open_at || t.last_cv_download_at || t.created_at;
+  const company = String(t.company || "").trim();
+  const who = company || t.to_email;
+  const sub = company
+    ? `${t.to_email} · ${t.subject || "(konu yok)"}`
+    : `${t.subject || "(konu yok)"} · ${t.topicLabel || t.source || "api"}`;
   return `
     <button class="row" type="button" data-id="${escapeHtml(t.id)}">
       <div class="head">
         <div>
-          <div class="who">${escapeHtml(t.to_email)}${t.topicLabel ? `<span class="tag">${escapeHtml(t.topicLabel)}</span>` : ""}</div>
-          <div class="sub">${escapeHtml(t.subject || "(konu yok)")} · ${escapeHtml(t.topicLabel || t.source || "api")}</div>
+          <div class="who">${escapeHtml(who)}${t.topicLabel ? `<span class="tag">${escapeHtml(t.topicLabel)}</span>` : ""}</div>
+          <div class="sub">${escapeHtml(sub)}</div>
         </div>
         <div class="when">${timeAgo(when)}</div>
       </div>
@@ -153,6 +171,19 @@ function renderList() {
   renderFooter();
 }
 
+function eventHtml(e) {
+  const label = e.type === "cv" ? "CV indirildi" : "Mail açıldı";
+  const client = browserLabel(e.userAgent);
+  const proxy = client === "Gmail görsel proxy";
+  const bits = [new Date(e.at).toLocaleString("tr-TR")];
+  if (client) bits.push(client);
+  if (e.ip) bits.push(e.ip);
+  const note = proxy
+    ? `<small>IP Gmail sunucusuna ait; alıcının kendi adresi değil.</small>`
+    : "";
+  return `<li><strong>${label}</strong><small>${bits.map(escapeHtml).join(" · ")}</small>${note}</li>`;
+}
+
 function renderDrawer() {
   const t = state.detail;
   const box = $("drawerBody");
@@ -160,18 +191,16 @@ function renderDrawer() {
     box.innerHTML = "";
     return;
   }
+  const company = String(t.company || "").trim();
   const events = t.events?.length
-    ? t.events
-        .map((e) => {
-          const label = e.type === "cv" ? "CV indirildi" : "Mail açıldı";
-          return `<li><strong>${label}</strong><small>${new Date(e.at).toLocaleString("tr-TR")}${e.ip ? ` · ${escapeHtml(e.ip)}` : ""}</small></li>`;
-        })
-        .join("")
-    : `<li><strong>Henüz hareket yok</strong><small>Mail açılınca veya CV inince burada durur.</small></li>`;
+    ? t.events.map(eventHtml).join("")
+    : t.tracked === false
+      ? `<li><strong>Takip yok</strong><small>Bu mail piksel eklenmeden gitmiş. Açılma sayısı tutulmaz.</small></li>`
+      : `<li><strong>Henüz hareket yok</strong><small>Mail açılınca veya CV inince saat, tarayıcı ve IP burada durur.</small></li>`;
 
   box.innerHTML = `
-    <h2>${escapeHtml(t.to_email)}</h2>
-    <p class="sub">${escapeHtml(t.subject || "(konu yok)")}</p>
+    <h2>${escapeHtml(company || t.to_email)}</h2>
+    <p class="sub">${escapeHtml(company ? `${t.to_email} · ${t.subject || "(konu yok)"}` : t.subject || "(konu yok)")}</p>
     <div class="pills">${statusPills(t)}</div>
     <div class="copy">
       <button class="btn" type="button" data-copy="${escapeHtml(t.cvUrl)}">CV linki</button>
@@ -182,6 +211,8 @@ function renderDrawer() {
       <div><span>İlk mail</span><b>${t.first_open_at ? new Date(t.first_open_at).toLocaleString("tr-TR") : "—"}</b></div>
       <div><span>Son mail</span><b>${t.last_open_at ? new Date(t.last_open_at).toLocaleString("tr-TR") : "—"}</b></div>
       <div><span>İlk CV</span><b>${t.cv_first_download_at ? new Date(t.cv_first_download_at).toLocaleString("tr-TR") : "—"}</b></div>
+      <div><span>Açılma</span><b>${t.open_count || 0}</b></div>
+      <div><span>CV indirme</span><b>${t.cv_download_count || 0}</b></div>
       <div><span>Kaynak</span><b>${escapeHtml(t.source || "—")}</b></div>
     </div>
     <h3>Hareketler</h3>
