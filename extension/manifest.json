@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "MailTracker (Self-Hosted)",
+  "name": "MailPing",
   "version": "1.4.0",
   "description": "Gmail / Outlook maillerinde okundu ve CV indirme takibi — kendi sunucunuz.",
   "permissions": ["storage", "notifications", "alarms"],

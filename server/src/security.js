@@ -54,7 +54,7 @@ export function securityHeaders(req, res, next) {
   if (!isTrackingPublic(req)) {
     res.set(
       "Content-Security-Policy",
-      "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'"
+      "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src 'self'; frame-src 'self'; form-action 'self'; frame-ancestors 'none'"
     );
   }
   next();

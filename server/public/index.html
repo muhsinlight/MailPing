@@ -5,123 +5,149 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="/panel.css?v=min1" />
+  <link rel="stylesheet" href="/panel.css?v=rail2" />
 </head>
 <body>
   <div class="app">
-    <aside class="side">
+    <nav class="rail" aria-label="Ana menü">
       <div class="mark">
-        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+        <svg class="logo" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
           <rect width="32" height="32" rx="8" fill="#1c1a17"/>
           <path d="M8 12.2h16v10.2H8z" fill="none" stroke="#fffdf8" stroke-width="1.6"/>
           <path d="M8 12.6 16 18l8-5.4" fill="none" stroke="#fffdf8" stroke-width="1.6" stroke-linejoin="round"/>
           <circle cx="24.2" cy="8.6" r="3" fill="#c4654a"/>
         </svg>
-        MailPing
       </div>
-      <button id="openCompose" class="btn solid wide" type="button">Mail gönder</button>
-      <nav class="nav" id="nav">
-        <button type="button" data-view="sent" class="on">Gönderilenler</button>
-        <button type="button" data-view="panel">Panelden giden</button>
-        <button type="button" data-view="opened">Açılanlar</button>
-        <button type="button" data-view="waiting">Henüz açılmayan</button>
-      </nav>
-      <section class="side-block" id="cvCard">
-        <p class="kicker">CV</p>
-        <h2 id="cvName">Yüklenmedi</h2>
-        <p id="cvHint" class="lede">Sitede durur. Maile ancak sen seçersen gider.</p>
-        <div class="actions">
-          <label class="btn">
+      <button id="navInbox" class="rail-btn on" type="button" aria-label="Başvurular" title="Başvurular">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 6.5h16v11H4z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 7.2 12 13l8-5.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="openCompose" class="rail-btn" type="button" aria-label="Mail gönder" title="Mail gönder">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="openSetup" class="rail-btn foot" type="button" aria-label="Kurulum" title="Kurulum">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6.1 6.1l1.6 1.6M16.3 16.3l1.6 1.6M17.9 6.1l-1.6 1.6M7.7 16.3l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+
+    <main class="main" id="main">
+      <header class="top">
+        <div>
+          <h1>Başvurular</h1>
+          <p id="weekLine" class="lede">Bu hafta 0 açıldı · 0 CV indi · 0 sessiz</p>
+        </div>
+        <div class="head-actions">
+          <label class="search">
+            <span class="sr">Ara</span>
+            <input id="search" type="search" placeholder="Firma veya konu" />
+          </label>
+          <button id="followTop" class="btn solid" type="button">Takip yaz</button>
+        </div>
+      </header>
+
+      <div id="segments" class="segments" role="tablist" aria-label="Aşama">
+        <button type="button" data-status="" class="on" role="tab" aria-selected="true">Tümü <b>0</b></button>
+        <button type="button" data-status="silent" role="tab" aria-selected="false">Sessiz <b>0</b></button>
+        <button type="button" data-status="opened" role="tab" aria-selected="false">Açtı <b>0</b></button>
+        <button type="button" data-status="cv" role="tab" aria-selected="false">CV indi <b>0</b></button>
+        <button type="button" data-status="untracked" role="tab" aria-selected="false">Takip yok <b>0</b></button>
+      </div>
+
+      <div id="kinds" class="kinds" aria-label="Tür">
+        <button type="button" data-kind="all" class="on">Tümü</button>
+        <button type="button" data-kind="panel">Panel</button>
+        <button type="button" data-kind="apps">Başvuru</button>
+        <button type="button" data-kind="sirket">Şirket</button>
+        <button type="button" data-kind="ik">İK</button>
+        <button type="button" data-kind="staj">Staj</button>
+        <button type="button" data-kind="kariyer">Kariyer</button>
+        <button type="button" data-kind="basvuru">İlan</button>
+        <button type="button" data-kind="other">Diğer</button>
+      </div>
+
+      <div id="list" class="list"></div>
+      <div id="more" class="more" hidden>Yükleniyor…</div>
+    </main>
+
+    <aside id="detail" class="detail" data-open="false" aria-label="Firma">
+      <button id="closeDetail" class="detail-close" type="button">Kapat</button>
+      <div id="detailBody">
+        <p class="empty-detail">Bir başvuru seç.</p>
+      </div>
+    </aside>
+  </div>
+
+  <div id="backdrop" class="backdrop" hidden></div>
+
+  <aside id="setupSheet" class="sheet" hidden aria-hidden="true" aria-labelledby="setupTitle">
+    <button id="closeSetup" class="icon" type="button">Kapat</button>
+    <p class="brand-line">MailPing</p>
+    <h2 id="setupTitle">Takip hazır değil</h2>
+    <p id="setupLede" class="lede">Üç adım bitince Gmail’den giden başvurular burada açılma ve CV olarak görünür.</p>
+    <ol class="steps">
+      <li id="stepCv">
+        <span class="num" aria-hidden="true">1</span>
+        <div>
+          <strong>CV yükle</strong>
+          <p id="cvHint">PDF sitede durur, maile sen seçince gider.</p>
+        </div>
+        <div class="step-actions">
+          <label class="btn solid">
             PDF seç
             <input id="cvFile" type="file" accept="application/pdf,.pdf" hidden />
           </label>
           <button id="cvPreview" class="btn" type="button" hidden>Önizle</button>
           <button id="cvRemove" class="btn danger" type="button" hidden>Kaldır</button>
         </div>
-      </section>
-      <section class="side-block" id="gmailCard">
-        <p class="kicker">Gmail</p>
-        <h2 id="gmailTitle">Bağlı değil</h2>
-        <p id="gmailHint" class="lede">Eski gönderilenleri çekmek için.</p>
-        <div class="actions">
-          <a id="gmailOAuth" class="btn" href="/api/gmail/connect" hidden>Google ile bağla</a>
-          <button id="gmailSync" class="btn" type="button">Çek</button>
+      </li>
+      <li id="stepGmail">
+        <span class="num" aria-hidden="true">2</span>
+        <div>
+          <strong>Gmail bağla</strong>
+          <p id="gmailHint">Eski gönderilenler listeye düşer.</p>
+        </div>
+        <div class="step-actions">
+          <a id="gmailOAuth" class="btn solid" href="/api/gmail/connect" hidden>Google ile bağla</a>
+          <button id="gmailSync" class="btn" type="button" hidden>Gönderilenleri çek</button>
           <button id="gmailDisconnect" class="btn danger" type="button" hidden>Kopar</button>
         </div>
-      </section>
-      <div class="side-foot">
-        <button class="pulse" id="pulse" type="button">Canlı</button>
-        <button class="btn" id="logout" type="button">Çıkış</button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="top">
+      </li>
+      <li id="stepLive">
+        <span class="num" aria-hidden="true">3</span>
         <div>
-          <h1 id="viewTitle">Gönderilenler</h1>
-          <p id="viewHint" class="lede">Sağdaki yazı, alıcının maili açıp açmadığıdır.</p>
+          <strong>Bildirimi aç</strong>
+          <p>Chrome eklentisinde sunucu adresi bu site ile aynı olsun. Mail açılınca masaüstüne düşer.</p>
         </div>
-        <div class="stats">
-          <article class="stat" id="statOpen"><b>0</b><span>Açtı</span></article>
-          <article class="stat" id="statWait"><b>0</b><span>Açılmadı</span></article>
-          <article class="stat" id="statCv"><b>0</b><span>CV indi</span></article>
-          <article class="stat" id="statAll"><b>0</b><span>Toplam</span></article>
+        <div class="step-actions">
+          <button id="enableLive" class="btn" type="button">Bildirimi aç</button>
         </div>
-      </header>
-
-      <section class="board">
-        <div class="filter-bar">
-          <label>
-            Kim
-            <select id="kind">
-              <option value="all" selected>Tümü</option>
-              <option value="panel">Panelden giden</option>
-              <option value="apps">Başvurular</option>
-              <option value="sirket">Şirket</option>
-              <option value="ik">İK / HR</option>
-              <option value="staj">Staj</option>
-              <option value="kariyer">Kariyer</option>
-              <option value="basvuru">İlan</option>
-              <option value="other">Diğer</option>
-            </select>
-          </label>
-          <label>
-            Durum
-            <select id="status">
-              <option value="" selected>Hepsi</option>
-              <option value="opened">Açıldı</option>
-              <option value="waiting">Açılmadı</option>
-              <option value="cv">CV indirildi</option>
-            </select>
-          </label>
-          <label class="grow">
-            Ara
-            <input id="search" type="search" placeholder="firma, ik@, konu…" />
-          </label>
-        </div>
-        <div id="list" class="rows"></div>
-        <div id="pager" class="pager" hidden>
-          <button id="prevPage" class="btn" type="button">Önceki</button>
-          <span id="pageLabel"></span>
-          <button id="nextPage" class="btn" type="button">Sonraki</button>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <div id="backdrop" class="backdrop" hidden></div>
-  <aside id="drawer" class="sheet" hidden aria-hidden="true">
-    <button id="closeDrawer" class="icon" type="button" aria-label="Kapat">Kapat</button>
-    <div id="drawerBody"></div>
+      </li>
+    </ol>
+    <details class="dev">
+      <summary>Geliştirici</summary>
+      <p id="devEmpty" class="lede">Bir satır seçince piksel adresi burada durur.</p>
+      <div id="devBody" hidden>
+        <p id="devPixel" class="mono"></p>
+        <p id="devIp" class="lede"></p>
+        <button id="copyPixel" class="btn" type="button">Piksel adresini kopyala</button>
+      </div>
+      <button id="copyToken" class="btn" type="button">Eklenti tokenini kopyala</button>
+    </details>
+    <div class="sheet-foot">
+      <button id="logout" class="btn" type="button">Çıkış</button>
+      <span class="grow"></span>
+      <button id="setupLater" class="btn" type="button">Sonra</button>
+      <button id="setupDone" class="btn solid" type="button">Panele geç</button>
+    </div>
   </aside>
+
   <aside id="composeSheet" class="sheet compose" hidden aria-hidden="true">
-    <button id="closeCompose" class="icon" type="button" aria-label="Kapat">Kapat</button>
+    <button id="closeCompose" class="icon" type="button">Kapat</button>
     <h2>Mail gönder</h2>
-    <p class="lede">Adresleri virgülle ayır. CV kutusu kapalıysa mailde CV satırı olmaz.</p>
+    <p class="lede">Birden fazla adresi virgülle ayır. Her alıcı ayrı takip edilir.</p>
     <form id="composeForm">
       <label>
         Kime
-        <textarea id="composeTo" name="to" required placeholder="ik@firma.com, hr@startup.io"></textarea>
+        <textarea id="composeTo" name="to" required placeholder="ik@firma.com"></textarea>
       </label>
       <label>
         Konu
@@ -138,12 +164,14 @@
       <button class="btn solid" type="submit">Gönder</button>
     </form>
   </aside>
+
   <aside id="cvSheet" class="sheet preview" hidden aria-hidden="true">
-    <button id="closePreview" class="icon" type="button" aria-label="Kapat">Kapat</button>
+    <button id="closePreview" class="icon" type="button">Kapat</button>
     <h2 id="cvSheetTitle">CV</h2>
     <iframe id="cvFrame" title="CV önizleme"></iframe>
   </aside>
+
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=min1"></script>
+  <script src="/panel.js?v=rail2"></script>
 </body>
 </html>

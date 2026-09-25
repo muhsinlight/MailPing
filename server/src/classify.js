@@ -305,5 +305,7 @@ export function statusFilter(status) {
   if (status === "opened") return "first_open_at IS NOT NULL";
   if (status === "waiting") return "first_open_at IS NULL";
   if (status === "cv") return "cv_first_download_at IS NOT NULL";
+  if (status === "silent") return "has_pixel != 0 AND first_open_at IS NULL";
+  if (status === "untracked") return "has_pixel = 0";
   return null;
 }

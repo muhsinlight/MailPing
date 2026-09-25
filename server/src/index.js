@@ -219,6 +219,7 @@ app.get("/api/cv/file", (req, res) => {
     "Content-Disposition": contentDisposition(file.filename, inline),
     "Cache-Control": "no-store",
     "X-Frame-Options": "SAMEORIGIN",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'",
   });
   res.send(file.buffer);
 });
@@ -336,7 +337,10 @@ app.get("/api/tracks", (req, res) => {
       limit: page.limit,
       offset: page.offset,
       hasMore: page.hasMore,
-      stats: trackStats(),
+      stats: trackStats({
+        filter: req.query.kind || req.query.filter || "all",
+        query: req.query.q || "",
+      }),
     });
   }
   res.json(listTracks().map((t) => toPublicTrack(t)));
@@ -353,7 +357,7 @@ app.get("/t/:id.png", (req, res) => {
   const track = getTrack(id);
   if (track) {
     const result = recordOpen(id, {
-      ip: clientIp(req, TRUST_PROXY),
+      ip: null,
       userAgent: req.headers["user-agent"],
     });
     if (result?.isFirstOpen) {
@@ -384,7 +388,7 @@ app.post("/c/:id/file", (req, res) => {
   if (!file) return res.status(404).send("CV henüz yüklenmemiş.");
 
   recordCvDownload(track.id, {
-    ip: clientIp(req, TRUST_PROXY),
+    ip: null,
     userAgent: req.headers["user-agent"],
   });
 

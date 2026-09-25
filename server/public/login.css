@@ -6,7 +6,24 @@
 }
 .gate .tile {
   width: min(400px, 100%);
+  background: var(--card, #fffcf8);
+  border: 1px solid var(--line, #e4dfd6);
+  border-radius: 18px;
+  padding: 28px 24px;
 }
+.gate h1 { margin: 10px 0 0; font-size: 1.6rem; letter-spacing: -0.03em; }
+.gate .lede { margin: 8px 0 0; color: var(--mute, #6f6a62); line-height: 1.4; }
+.gate .btn {
+  appearance: none;
+  border: 0;
+  background: var(--ink, #1c1a17);
+  color: var(--card, #fffcf8);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.gate .btn:disabled { opacity: 0.6; cursor: wait; }
 .gate .mark { display: inline-flex; align-items: center; gap: 8px; }
 .gate .mark svg { display: block; flex: none; }
 .gate form { display: grid; gap: 12px; margin-top: 18px; }

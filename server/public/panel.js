@@ -1,25 +1,19 @@
-const PAGE = 50;
-
-const VIEWS = {
-  sent: { title: "Gönderilenler", hint: "Sağdaki yazı, alıcının maili açıp açmadığıdır.", filter: "all", status: "" },
-  panel: { title: "Panelden giden", hint: "Bu siteden attığın mailler.", filter: "panel", status: "" },
-  opened: { title: "Açılanlar", hint: "En az bir kez açılmış mailler.", filter: "all", status: "opened" },
-  waiting: { title: "Henüz açılmayan", hint: "Takip edilen ama henüz açılmamış mailler.", filter: "all", status: "waiting" },
-};
+const PAGE = 40;
+const SETUP_KEY = "mailping-setup-later";
 
 const state = {
   tracks: [],
   cv: null,
   gmail: null,
-  view: "sent",
+  apiToken: "",
   filter: "all",
   status: "",
   query: "",
-  page: 0,
   openId: null,
   detail: null,
   stats: null,
   total: 0,
+  hasMore: false,
   loading: false,
 };
 
@@ -56,7 +50,7 @@ function timeAgo(iso) {
   if (hours < 24) return `${hours} sa önce`;
   const days = Math.floor(hours / 24);
   if (days < 14) return `${days} gün önce`;
-  return new Date(iso).toLocaleString("tr-TR");
+  return new Date(iso).toLocaleDateString("tr-TR");
 }
 
 function formatBytes(n) {
@@ -76,245 +70,280 @@ function toast(msg) {
   }, 2200);
 }
 
-function renderStats() {
-  const s = state.stats || { opened: 0, waiting: 0, cv: 0, total: 0 };
-  $("statOpen").querySelector("b").textContent = s.opened;
-  $("statWait").querySelector("b").textContent = s.waiting;
-  $("statCv").querySelector("b").textContent = s.cv;
-  $("statAll").querySelector("b").textContent = s.total;
+function liveOn() {
+  return typeof Notification !== "undefined" && Notification.permission === "granted";
 }
 
-function renderCv() {
+function gmailReady() {
+  const g = state.gmail;
+  return Boolean(g && (g.oauthConnected || g.imapReady));
+}
+
+function daysSince(iso) {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function stageOf(t) {
+  if (t.cvDownloaded) return { key: "cv", label: `CV indi · ${t.cv_download_count || 0}` };
+  if (t.tracked === false) return { key: "none", label: "Takip yok" };
+  if (t.read) return { key: "ok", label: `Açtı · ${t.open_count || 0}` };
+  return { key: "wait", label: "Sessiz" };
+}
+
+function followHint(t) {
+  if (t.cvDownloaded || t.tracked === false) return "";
+  const days = daysSince(t.created_at);
+  if (days >= 3) return `${days} gün`;
+  return "";
+}
+
+function renderWeek() {
+  const s = state.stats || {};
+  $("weekLine").textContent = `Bu hafta ${s.weekOpened || 0} açıldı · ${s.weekCv || 0} CV indi · ${s.inboxSilent || 0} sessiz`;
+}
+
+function renderSegments() {
+  const s = state.stats || {};
+  const counts = {
+    "": s.total || 0,
+    silent: s.silent || 0,
+    opened: s.opened || 0,
+    cv: s.cv || 0,
+    untracked: s.untracked || 0,
+  };
+  for (const button of $("segments").querySelectorAll("button")) {
+    const on = button.dataset.status === state.status;
+    button.classList.toggle("on", on);
+    button.setAttribute("aria-selected", on ? "true" : "false");
+    const count = button.querySelector("b");
+    if (count) count.textContent = String(counts[button.dataset.status] ?? 0);
+  }
+}
+
+function renderKinds() {
+  for (const button of $("kinds").querySelectorAll("button")) {
+    button.classList.toggle("on", button.dataset.kind === state.filter);
+  }
+}
+
+function renderSetup() {
   const cv = state.cv;
-  $("cvName").textContent = cv?.filename || "Yüklenmedi";
+  const g = state.gmail;
+  const connected = gmailReady();
+  $("stepCv").classList.toggle("done", Boolean(cv));
+  $("stepGmail").classList.toggle("done", connected);
+  $("stepLive").classList.toggle("done", liveOn());
   $("cvHint").textContent = cv
-    ? `${formatBytes(cv.size)} · sitede duruyor`
-    : "Sitede durur. Maile ancak sen seçersen gider.";
+    ? `${cv.filename} · ${formatBytes(cv.size)}`
+    : "PDF sitede durur, maile sen seçince gider.";
   $("cvPreview").hidden = !cv;
   $("cvRemove").hidden = !cv;
-}
+  const readySteps = Number(Boolean(cv)) + Number(connected);
+  $("setupDone").disabled = readySteps < 2;
+  $("setupTitle").textContent = readySteps >= 2 && liveOn() ? "Takip hazır" : "Takip hazır değil";
 
-function openPill(t) {
-  if (t.read) return `<span class="pill ok">Açtı · ${t.open_count}</span>`;
-  if (t.tracked === false) return `<span class="pill">Takip yok</span>`;
-  return `<span class="pill wait">Henüz açmadı</span>`;
-}
-
-function statusPills(t) {
-  const cv = t.cvDownloaded ? `<span class="pill cv">CV indi · ${t.cv_download_count}</span>` : "";
-  return openPill(t) + cv;
-}
-
-function renderGmail() {
-  const g = state.gmail;
   if (!g) return;
-  const connected = g.oauthConnected || g.imapReady;
-  $("gmailTitle").textContent = g.email || (connected ? "Hazır" : "Bağlı değil");
-  $("gmailHint").textContent = g.lastSyncAt
-    ? `Son çekme: ${new Date(g.lastSyncAt).toLocaleString("tr-TR")} · ${g.lastImported || 0} yeni`
+  $("gmailHint").textContent = g.email
+    ? `${g.email}${g.lastSyncAt ? ` · son çekme ${new Date(g.lastSyncAt).toLocaleString("tr-TR")}` : ""}`
     : connected
-      ? "Gönderilenleri çek. Eski mailler listelenir; açıldı takibi yalnız bundan sonra eklenenlerde olur."
-      : "Google Cloud OAuth veya Gmail uygulama şifresi (.env SMTP) gerekir.";
-  $("gmailOAuth").hidden = !g.oauthConfigured;
-  $("gmailSync").hidden = !(g.oauthConnected || g.imapReady);
+      ? "Gönderilenleri çek. Eski mailler listelenir."
+      : "Google hesabı veya Gmail uygulama şifresi gerekir.";
+  $("gmailOAuth").hidden = !g.oauthConfigured || g.oauthConnected;
+  $("gmailSync").hidden = !connected;
   $("gmailDisconnect").hidden = !g.oauthConnected;
+  $("enableLive").textContent = liveOn() ? "Bildirim açık" : "Bildirimi aç";
+}
+
+function renderDev() {
+  const t = state.detail;
+  $("devEmpty").hidden = Boolean(t);
+  $("devBody").hidden = !t;
+  if (!t) return;
+  $("devPixel").textContent = t.pixelUrl || "";
+  const last = [...(t.events || [])].reverse().find((event) => event.ip);
+  $("devIp").textContent = last
+    ? `Son kayıt IP: ${last.ip}. Gmail açılışında bu adres Gmail sunucusuna aittir.`
+    : "Bu kayıtta IP yok.";
 }
 
 function browserLabel(ua) {
   const s = String(ua || "");
   if (!s) return "";
-  if (/GoogleImageProxy|ggpht\.com|Google-Firebase/i.test(s)) return "Gmail görsel proxy";
+  if (/GoogleImageProxy|ggpht\.com|Google-Firebase/i.test(s)) return "Gmail";
   if (/Outlook|Microsoft Office/i.test(s)) return "Outlook";
   if (/Thunderbird/i.test(s)) return "Thunderbird";
   if (/Edg\//.test(s)) return "Edge";
   if (/Chrome\//.test(s) && /Safari\//.test(s)) return "Chrome";
   if (/Firefox\//.test(s)) return "Firefox";
   if (/Safari\//.test(s)) return "Safari";
-  return s.length > 72 ? `${s.slice(0, 72)}…` : s;
+  return "";
 }
 
-function cardHtml(t) {
+function rowHtml(t) {
   const company = String(t.company || "").trim();
   const who = company || t.to_email;
-  const subject = t.subject || "(konu yok)";
-  const sub = company ? `${t.to_email} · ${subject}` : subject;
+  const stage = stageOf(t);
+  const hint = followHint(t);
+  const selected = state.openId === t.id ? " is-on" : "";
+  const pillClass = stage.key === "ok" || stage.key === "cv" ? stage.key : "";
   return `
-    <button class="row" type="button" data-id="${escapeHtml(t.id)}">
-      <div>
-        <div class="who">${escapeHtml(who)}</div>
-        <div class="sub">${escapeHtml(sub)}</div>
-      </div>
-      <div>${statusPills(t)}</div>
+    <button class="row${selected}" type="button" data-id="${escapeHtml(t.id)}">
+      <span class="who">${escapeHtml(who)}</span>
+      <span class="sub">${escapeHtml(t.subject || "(konu yok)")}</span>
+      <span class="when">${timeAgo(t.created_at)}</span>
+      <span class="stage">
+        ${hint ? `<span class="age">${escapeHtml(hint)}</span>` : ""}
+        <span class="pill ${pillClass}">${escapeHtml(stage.label)}</span>
+      </span>
     </button>`;
 }
 
-function pageCount() {
-  return Math.max(1, Math.ceil(state.total / PAGE));
-}
-
-function renderPager() {
-  const pager = $("pager");
-  if (!state.total) {
-    pager.hidden = true;
-    return;
+function emptyCopy() {
+  if (state.loading && !state.tracks.length) return "Yükleniyor…";
+  if (!state.query && state.filter === "all" && !state.status && !state.total) {
+    return "Henüz başvuru yok. Mail gönder veya kurulumdan Gmail’i çek.";
   }
-  pager.hidden = false;
-  const pages = pageCount();
-  const from = state.page * PAGE + 1;
-  const to = Math.min(state.total, (state.page + 1) * PAGE);
-  $("pageLabel").textContent = `${from}–${to} / ${state.total}`;
-  $("prevPage").disabled = state.page <= 0;
-  $("nextPage").disabled = state.page + 1 >= pages;
+  return "Bu aşamada kayıt yok.";
 }
 
 function renderList() {
   const root = $("list");
   if (!state.tracks.length) {
-    root.innerHTML = `<div class="empty">${state.loading ? "Yükleniyor…" : "Bu filtrede kayıt yok."}</div>`;
-    renderPager();
-    return;
+    root.innerHTML = `<div class="empty">${emptyCopy()}</div>`;
+  } else {
+    root.innerHTML = state.tracks.map(rowHtml).join("");
   }
-  root.innerHTML = state.tracks.map(cardHtml).join("");
-  renderPager();
+  $("more").hidden = !state.hasMore;
+  if (state.hasMore) {
+    requestAnimationFrame(() => {
+      const box = $("more").getBoundingClientRect();
+      const rootBox = $("main").getBoundingClientRect();
+      if (box.top < rootBox.bottom + 80) {
+        loadPage({ append: true }).catch(() => toast("Liste alınamadı"));
+      }
+    });
+  }
 }
 
 function eventHtml(e) {
-  const label = e.type === "cv" ? "CV indirildi" : "Mail açıldı";
-  const client = browserLabel(e.userAgent);
-  const proxy = client === "Gmail görsel proxy";
+  const label = e.type === "cv" ? "CV indirildi" : "Açıldı";
   const bits = [new Date(e.at).toLocaleString("tr-TR")];
+  const client = browserLabel(e.userAgent);
   if (client) bits.push(client);
-  if (e.ip) bits.push(e.ip);
-  const note = proxy
-    ? `<small>IP Gmail sunucusuna ait; alıcının kendi adresi değil.</small>`
-    : "";
-  return `<li><strong>${label}</strong><small>${bits.map(escapeHtml).join(" · ")}</small>${note}</li>`;
+  return `<li><strong>${label}</strong><small>${bits.map(escapeHtml).join(" · ")}</small></li>`;
 }
 
-function renderDrawer() {
+function renderDetail() {
   const t = state.detail;
-  const box = $("drawerBody");
+  const box = $("detailBody");
+  $("detail").dataset.open = t ? "true" : "false";
   if (!t) {
-    box.innerHTML = "";
+    box.innerHTML = `<p class="empty-detail">Bir başvuru seç.</p>`;
+    renderDev();
     return;
   }
   const company = String(t.company || "").trim();
+  const stage = stageOf(t);
+  const pillClass = stage.key === "ok" || stage.key === "cv" ? stage.key : "";
+  const sent = `<li><strong>Gönderildi</strong><small>${escapeHtml(new Date(t.created_at).toLocaleString("tr-TR"))}</small></li>`;
   const events = t.events?.length
     ? t.events.map(eventHtml).join("")
     : t.tracked === false
-      ? `<li><strong>Takip yok</strong><small>Bu mail piksel eklenmeden gitmiş. Açılma sayısı tutulmaz.</small></li>`
-      : `<li><strong>Henüz hareket yok</strong><small>Mail açılınca veya CV inince saat, tarayıcı ve IP burada durur.</small></li>`;
-
+      ? `<li><strong>Takip yok</strong><small>Bu mail piksel eklenmeden gitmiş.</small></li>`
+      : `<li><strong>Hareket yok</strong><small>Mail açılınca veya CV inince burada görünür.</small></li>`;
   box.innerHTML = `
     <h2>${escapeHtml(company || t.to_email)}</h2>
-    <p class="sub">${escapeHtml(company ? `${t.to_email} · ${t.subject || "(konu yok)"}` : t.subject || "(konu yok)")}</p>
-    <div class="pills">${statusPills(t)}</div>
-    <div class="copy">
-      <button class="btn" type="button" data-copy="${escapeHtml(t.cvUrl)}">CV linki</button>
-      <button class="btn" type="button" data-copy="${escapeHtml(t.pixelUrl)}">Piksel URL</button>
+    <p class="mail">${escapeHtml(t.to_email)}</p>
+    <p class="sub">${escapeHtml(t.subject || "(konu yok)")}</p>
+    <span class="pill ${pillClass}">${escapeHtml(stage.label)}</span>
+    <div class="detail-actions">
+      <button class="btn solid" type="button" data-follow="1">Takip maili yaz</button>
+      <button class="btn" type="button" data-copy="${escapeHtml(t.cvUrl)}">CV linkini kopyala</button>
     </div>
-    <div class="meta-grid">
-      <div><span>Gönderildi</span><b>${new Date(t.created_at).toLocaleString("tr-TR")}</b></div>
-      <div><span>İlk mail</span><b>${t.first_open_at ? new Date(t.first_open_at).toLocaleString("tr-TR") : "—"}</b></div>
-      <div><span>Son mail</span><b>${t.last_open_at ? new Date(t.last_open_at).toLocaleString("tr-TR") : "—"}</b></div>
-      <div><span>İlk CV</span><b>${t.cv_first_download_at ? new Date(t.cv_first_download_at).toLocaleString("tr-TR") : "—"}</b></div>
-      <div><span>Açılma</span><b>${t.open_count || 0}</b></div>
-      <div><span>CV indirme</span><b>${t.cv_download_count || 0}</b></div>
-      <div><span>Kaynak</span><b>${escapeHtml(t.source || "—")}</b></div>
-    </div>
-    <h3>Hareketler</h3>
-    <ol class="timeline">${events}</ol>
+    <ol class="timeline">${sent}${events}</ol>
   `;
+  renderDev();
 }
 
 function syncBackdrop() {
-  $("backdrop").hidden = $("drawer").hidden && $("cvSheet").hidden && $("composeSheet").hidden;
+  $("backdrop").hidden = $("setupSheet").hidden && $("cvSheet").hidden && $("composeSheet").hidden;
 }
 
-function setDrawer(open) {
-  $("drawer").hidden = !open;
-  $("drawer").setAttribute("aria-hidden", open ? "false" : "true");
-  syncBackdrop();
-}
-
-function setCompose(open) {
-  const sheet = $("composeSheet");
+function setSheet(id, open) {
+  const sheet = $(id);
   sheet.hidden = !open;
   sheet.setAttribute("aria-hidden", open ? "false" : "true");
   syncBackdrop();
 }
 
 function setPreview(open) {
-  const sheet = $("cvSheet");
   const frame = $("cvFrame");
-  sheet.hidden = !open;
-  sheet.setAttribute("aria-hidden", open ? "false" : "true");
+  setSheet("cvSheet", open);
   if (open) {
     $("cvSheetTitle").textContent = state.cv?.filename || "CV";
     frame.src = `/api/cv/file?inline=1&t=${Date.now()}`;
   } else {
     frame.removeAttribute("src");
   }
-  syncBackdrop();
+}
+
+function closeDetail() {
+  state.openId = null;
+  state.detail = null;
+  renderDetail();
+  renderList();
 }
 
 async function loadDetail(id) {
   state.openId = id;
+  renderList();
   const res = await api(`/api/tracks/${id}`);
   if (!res.ok) return;
   state.detail = await res.json();
-  renderDrawer();
-  setDrawer(true);
+  renderDetail();
 }
 
-function syncViewChrome() {
-  const current = Object.entries(VIEWS).find(([, view]) => view.filter === state.filter && view.status === state.status);
-  state.view = current ? current[0] : "";
-  for (const button of document.querySelectorAll("#nav button")) {
-    button.classList.toggle("on", button.dataset.view === state.view);
+async function loadPage({ reset = false, append = false, refresh = false } = {}) {
+  if (state.loading) {
+    state.pending = reset ? "reset" : state.pending;
+    return;
   }
-  if (current) {
-    $("viewTitle").textContent = current[1].title;
-    $("viewHint").textContent = current[1].hint;
-  }
-  $("kind").value = state.filter;
-  $("status").value = state.status;
-}
-
-async function loadPage({ page, quiet = false } = {}) {
-  if (state.loading) return;
-  if (page !== undefined) state.page = Math.max(0, page);
   state.loading = true;
-  if (!quiet) renderList();
+  if (reset) {
+    state.tracks = [];
+    state.hasMore = false;
+    renderList();
+  }
+  const offset = append ? state.tracks.length : 0;
+  const limit = refresh ? Math.max(PAGE, state.tracks.length || PAGE) : PAGE;
   const params = new URLSearchParams({
     paged: "1",
-    limit: String(PAGE),
-    offset: String(state.page * PAGE),
+    limit: String(limit),
+    offset: String(refresh ? 0 : offset),
     kind: state.filter,
     status: state.status,
     q: state.query,
   });
-  let retry = false;
   try {
     const res = await api(`/api/tracks?${params}`);
     if (!res.ok) throw new Error("Liste alınamadı");
     const data = await res.json();
     state.stats = data.stats;
     state.total = data.total;
-    if (state.page > pageCount() - 1) {
-      state.page = pageCount() - 1;
-      retry = true;
-    } else {
-      state.tracks = data.items;
-      renderStats();
-      syncViewChrome();
-      renderList();
-    }
+    state.hasMore = Boolean(data.hasMore);
+    state.tracks = append ? state.tracks.concat(data.items) : data.items;
+    renderWeek();
+    renderSegments();
+    renderKinds();
+    renderList();
   } finally {
     state.loading = false;
-    renderPager();
   }
-  if (retry) return loadPage({ quiet });
+  if (state.pending === "reset") {
+    state.pending = null;
+    return loadPage({ reset: true });
+  }
 }
 
 function signalText(signal) {
@@ -324,27 +353,14 @@ function signalText(signal) {
   return { title, body: `${who} · ${subject}` };
 }
 
-function liveOn() {
-  return typeof Notification !== "undefined" && Notification.permission === "granted";
-}
-
-function renderPulse() {
-  const el = $("pulse");
-  if (!el) return;
-  el.textContent = liveOn() ? "Sinyal açık" : "Canlı";
-  el.title = liveOn()
-    ? "Masaüstü bildirimi açık (Windows / Mac)"
-    : "Tıkla: mail açılınca veya CV inince bildirim düşsün";
-}
-
 async function enableLiveSignal() {
   if (typeof Notification === "undefined") {
     toast("Bu tarayıcı bildirim desteklemiyor");
     return;
   }
   const perm = await Notification.requestPermission();
-  renderPulse();
-  toast(perm === "granted" ? "Sinyal açık — masaüstüne düşer" : "Bildirim izni verilmedi");
+  renderSetup();
+  toast(perm === "granted" ? "Bildirim açık" : "Bildirim izni verilmedi");
 }
 
 async function checkSignals() {
@@ -368,56 +384,67 @@ async function checkSignals() {
   if (data.now) localStorage.setItem("lastSignalAt", data.now);
 }
 
+function maybeOpenSetup() {
+  const incomplete = !state.cv || !gmailReady();
+  if (incomplete && localStorage.getItem(SETUP_KEY) !== "1") setSheet("setupSheet", true);
+}
+
 async function refreshMeta() {
   await checkSignals().catch(() => {});
-  const [cvRes, gmailRes] = await Promise.all([api("/api/cv"), api("/api/gmail/status")]);
+  const [cvRes, gmailRes, authRes] = await Promise.all([
+    api("/api/cv"),
+    api("/api/gmail/status"),
+    api("/api/auth"),
+  ]);
   if (cvRes.ok) state.cv = (await cvRes.json()).cv;
   if (gmailRes.ok) state.gmail = await gmailRes.json();
-  renderCv();
-  renderGmail();
+  if (authRes.ok) state.apiToken = (await authRes.json()).apiToken || "";
+  renderSetup();
   if (state.openId) {
     const res = await api(`/api/tracks/${state.openId}`);
     if (res.ok) {
       state.detail = await res.json();
-      renderDrawer();
+      renderDetail();
     }
   }
-  await loadPage({ quiet: true });
+  await loadPage({ refresh: true });
 }
 
-function applyFilters() {
-  state.filter = $("kind").value;
-  state.status = $("status").value;
-  loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
+function openFollow(track) {
+  if (!track) {
+    $("composeForm").reset();
+    setSheet("composeSheet", true);
+    return;
+  }
+  setSheet("composeSheet", true);
+  $("composeTo").value = track.to_email || "";
+  const subject = String(track.subject || "").trim();
+  $("composeSubject").value = subject ? `Takip: ${subject}` : "Takip";
+  $("composeBody").value = "Merhaba,\n\nGönderdiğim başvuruyu hatırlatmak istedim. Uygun olduğunuzda dönüşünüzü beklerim.\n\nİyi çalışmalar.";
+  $("composeCv").checked = Boolean(state.cv);
 }
 
-$("nav").addEventListener("click", (e) => {
-  const button = e.target.closest("[data-view]");
+$("segments").addEventListener("click", (e) => {
+  const button = e.target.closest("[data-status]");
   if (!button) return;
-  const view = VIEWS[button.dataset.view];
-  if (!view) return;
-  state.filter = view.filter;
-  state.status = view.status;
-  loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
+  state.status = button.dataset.status;
+  loadPage({ reset: true }).catch(() => toast("Liste alınamadı"));
 });
 
-$("kind").addEventListener("change", applyFilters);
-$("status").addEventListener("change", applyFilters);
+$("kinds").addEventListener("click", (e) => {
+  const button = e.target.closest("[data-kind]");
+  if (!button) return;
+  state.filter = button.dataset.kind;
+  loadPage({ reset: true }).catch(() => toast("Liste alınamadı"));
+});
 
 let searchTimer;
 $("search").addEventListener("input", (e) => {
   state.query = e.target.value;
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    loadPage({ page: 0 }).catch(() => toast("Liste alınamadı"));
+    loadPage({ reset: true }).catch(() => toast("Liste alınamadı"));
   }, 250);
-});
-
-$("prevPage").addEventListener("click", () => {
-  if (state.page > 0) loadPage({ page: state.page - 1 }).catch(() => toast("Liste alınamadı"));
-});
-$("nextPage").addEventListener("click", () => {
-  if (state.page + 1 < pageCount()) loadPage({ page: state.page + 1 }).catch(() => toast("Liste alınamadı"));
 });
 
 $("list").addEventListener("click", (e) => {
@@ -425,19 +452,13 @@ $("list").addEventListener("click", (e) => {
   if (row) loadDetail(row.dataset.id).catch(() => toast("Detay alınamadı"));
 });
 
-$("closeDrawer").addEventListener("click", () => {
-  state.openId = null;
-  state.detail = null;
-  setDrawer(false);
-});
-$("backdrop").addEventListener("click", () => {
-  if (!$("composeSheet").hidden) setCompose(false);
-  if (!$("cvSheet").hidden) setPreview(false);
-  if (!$("drawer").hidden) $("closeDrawer").click();
-});
-$("closePreview").addEventListener("click", () => setPreview(false));
+$("closeDetail").addEventListener("click", closeDetail);
 
-$("drawer").addEventListener("click", async (e) => {
+$("detail").addEventListener("click", async (e) => {
+  if (e.target.closest("[data-follow]")) {
+    openFollow(state.detail);
+    return;
+  }
   const btn = e.target.closest("[data-copy]");
   if (!btn) return;
   try {
@@ -447,6 +468,50 @@ $("drawer").addEventListener("click", async (e) => {
     toast("Kopyalanamadı");
   }
 });
+
+$("followTop").addEventListener("click", () => openFollow(state.detail));
+$("openCompose").addEventListener("click", () => {
+  $("composeForm").reset();
+  setSheet("composeSheet", true);
+});
+$("closeCompose").addEventListener("click", () => setSheet("composeSheet", false));
+
+$("navInbox").addEventListener("click", () => {
+  closeDetail();
+  $("main").scrollTo({ top: 0 });
+});
+
+$("openSetup").addEventListener("click", () => setSheet("setupSheet", true));
+$("closeSetup").addEventListener("click", () => setSheet("setupSheet", false));
+$("setupLater").addEventListener("click", () => {
+  localStorage.setItem(SETUP_KEY, "1");
+  setSheet("setupSheet", false);
+});
+$("setupDone").addEventListener("click", () => {
+  localStorage.setItem(SETUP_KEY, "1");
+  setSheet("setupSheet", false);
+});
+
+$("backdrop").addEventListener("click", () => {
+  setSheet("composeSheet", false);
+  setPreview(false);
+  setSheet("setupSheet", false);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  setSheet("composeSheet", false);
+  setPreview(false);
+  setSheet("setupSheet", false);
+  if (window.matchMedia("(max-width: 900px)").matches) closeDetail();
+});
+
+const moreObserver = new IntersectionObserver((entries) => {
+  if (!entries.some((entry) => entry.isIntersecting)) return;
+  if (!state.hasMore || state.loading) return;
+  loadPage({ append: true }).catch(() => toast("Liste alınamadı"));
+}, { root: $("main"), rootMargin: "120px" });
+moreObserver.observe($("more"));
 
 $("cvFile").addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
@@ -469,14 +534,72 @@ $("cvFile").addEventListener("change", async (e) => {
     return;
   }
   state.cv = (await res.json()).cv;
-  renderCv();
+  renderSetup();
   toast("CV kaydedildi");
 });
 
 $("cvPreview").addEventListener("click", () => setPreview(true));
+$("closePreview").addEventListener("click", () => setPreview(false));
 
-$("openCompose").addEventListener("click", () => setCompose(true));
-$("closeCompose").addEventListener("click", () => setCompose(false));
+$("cvRemove").addEventListener("click", async () => {
+  if (!confirm("Aktif CV kaldırılsın mı?")) return;
+  await api("/api/cv", { method: "DELETE" });
+  state.cv = null;
+  renderSetup();
+  toast("CV kaldırıldı");
+});
+
+$("gmailSync").addEventListener("click", async () => {
+  $("gmailSync").disabled = true;
+  $("gmailHint").textContent = "Gmail çekiliyor…";
+  try {
+    const res = await api("/api/gmail/sync", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Çekilemedi");
+    state.gmail = data;
+    renderSetup();
+    await loadPage({ reset: true });
+    toast(`${data.imported} yeni mail geldi`);
+  } catch (err) {
+    toast(err.message || "Gmail çekilemedi");
+    renderSetup();
+  } finally {
+    $("gmailSync").disabled = false;
+  }
+});
+
+$("gmailDisconnect").addEventListener("click", async () => {
+  await api("/api/gmail/disconnect", { method: "POST" });
+  const res = await api("/api/gmail/status");
+  if (res.ok) state.gmail = await res.json();
+  renderSetup();
+  toast("Gmail koptu");
+});
+
+$("enableLive").addEventListener("click", () => enableLiveSignal());
+
+$("copyPixel").addEventListener("click", async () => {
+  if (!state.detail?.pixelUrl) return;
+  try {
+    await navigator.clipboard.writeText(state.detail.pixelUrl);
+    toast("Kopyalandı");
+  } catch {
+    toast("Kopyalanamadı");
+  }
+});
+
+$("copyToken").addEventListener("click", async () => {
+  if (!state.apiToken) {
+    toast("Token yok");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(state.apiToken);
+    toast("Token kopyalandı");
+  } catch {
+    toast("Kopyalanamadı");
+  }
+});
 
 function parseRecipients(raw) {
   return [...new Set(
@@ -496,7 +619,7 @@ $("composeForm").addEventListener("submit", async (e) => {
     return;
   }
   if ($("composeCv").checked && !state.cv) {
-    toast("CV seçmek için soldan PDF yükle");
+    toast("CV için kurulumdan PDF yükle");
     return;
   }
   const subject = $("composeSubject").value.trim();
@@ -526,11 +649,9 @@ $("composeForm").addEventListener("submit", async (e) => {
       return;
     }
     toast(failed.length ? `${recipients.length - failed.length} gitti, ${failed.length} kaldı` : "Gönderildi");
-    setCompose(false);
+    setSheet("composeSheet", false);
     e.target.reset();
-    state.filter = "panel";
-    state.status = "";
-    await loadPage({ page: 0 });
+    await loadPage({ reset: true });
   } catch (err) {
     toast(err.message || "Gönderilemedi");
   } finally {
@@ -538,53 +659,18 @@ $("composeForm").addEventListener("submit", async (e) => {
   }
 });
 
-$("cvRemove").addEventListener("click", async () => {
-  if (!confirm("Aktif CV kaldırılsın mı?")) return;
-  await api("/api/cv", { method: "DELETE" });
-  state.cv = null;
-  renderCv();
-  toast("CV kaldırıldı");
-});
-
-$("gmailSync").addEventListener("click", async () => {
-  $("gmailSync").disabled = true;
-  $("gmailHint").textContent = "Gmail çekiliyor…";
-  try {
-    const res = await api("/api/gmail/sync", { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Çekilemedi");
-    state.gmail = data;
-    renderGmail();
-    await loadPage({ page: 0 });
-    await refreshMeta();
-    toast(`${data.imported} yeni mail geldi`);
-  } catch (err) {
-    toast(err.message || "Gmail çekilemedi");
-    renderGmail();
-  } finally {
-    $("gmailSync").disabled = false;
-  }
-});
-
-$("gmailDisconnect").addEventListener("click", async () => {
-  await api("/api/gmail/disconnect", { method: "POST" });
-  await refreshMeta();
-  toast("Gmail koptu");
+$("logout").addEventListener("click", async () => {
+  await api("/api/logout", { method: "POST" }).catch(() => {});
+  location.replace("/login.html");
 });
 
 const gmailQs = new URLSearchParams(location.search);
 if (gmailQs.get("gmail") === "ok") toast("Gmail bağlandı");
 if (gmailQs.get("gmail") === "error") toast(gmailQs.get("m") || "Gmail bağlanamadı");
 
-$("pulse").addEventListener("click", () => enableLiveSignal());
-renderPulse();
-
-$("logout").addEventListener("click", async () => {
-  await api("/api/logout", { method: "POST" }).catch(() => {});
-  location.replace("/login.html");
-});
-
-Promise.all([loadPage({ page: 0 }), refreshMeta()]).catch(() => {
-  $("list").innerHTML = `<div class="empty">Sunucuya bağlanılamadı.</div>`;
-});
+Promise.all([loadPage({ reset: true }), refreshMeta()])
+  .then(() => maybeOpenSetup())
+  .catch(() => {
+    $("list").innerHTML = `<div class="empty">Sunucuya bağlanılamadı.</div>`;
+  });
 setInterval(() => refreshMeta().catch(() => {}), 8000);

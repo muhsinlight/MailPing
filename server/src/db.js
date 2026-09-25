@@ -224,7 +224,7 @@ function filterClause(kind, status, query) {
 }
 
 export function queryTracks({ limit = 24, offset = 0, filter = "all", status = "", query = "" } = {}) {
-  const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 80);
+  const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 200);
   const safeOffset = Math.max(Number(offset) || 0, 0);
   const { where, params } = filterClause(filter, status, query);
   const items = db
@@ -240,21 +240,51 @@ export function queryTracks({ limit = 24, offset = 0, filter = "all", status = "
   };
 }
 
-export function trackStats() {
+function countTracks(filter, query) {
+  const { where, params } = filterClause(filter, "", query);
   const row = db
     .prepare(
       `
     SELECT
       COUNT(*) AS total,
       SUM(CASE WHEN first_open_at IS NOT NULL THEN 1 ELSE 0 END) AS opened,
-      SUM(CASE WHEN cv_first_download_at IS NOT NULL THEN 1 ELSE 0 END) AS cv
+      SUM(CASE WHEN cv_first_download_at IS NOT NULL THEN 1 ELSE 0 END) AS cv,
+      SUM(CASE WHEN has_pixel != 0 AND first_open_at IS NULL THEN 1 ELSE 0 END) AS silent,
+      SUM(CASE WHEN has_pixel = 0 THEN 1 ELSE 0 END) AS untracked
+    FROM tracks ${where}
+  `
+    )
+    .get(...params);
+  return {
+    total: row.total || 0,
+    opened: row.opened || 0,
+    cv: row.cv || 0,
+    silent: row.silent || 0,
+    untracked: row.untracked || 0,
+    waiting: (row.total || 0) - (row.opened || 0),
+  };
+}
+
+export function trackStats({ filter = "all", query = "" } = {}) {
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const scoped = countTracks(filter, query);
+  const inbox = db
+    .prepare(
+      `
+    SELECT
+      SUM(CASE WHEN has_pixel != 0 AND first_open_at IS NULL THEN 1 ELSE 0 END) AS silent,
+      SUM(CASE WHEN first_open_at IS NOT NULL AND first_open_at >= ? THEN 1 ELSE 0 END) AS weekOpened,
+      SUM(CASE WHEN cv_first_download_at IS NOT NULL AND cv_first_download_at >= ? THEN 1 ELSE 0 END) AS weekCv
     FROM tracks
   `
     )
-    .get();
-  const total = row.total || 0;
-  const opened = row.opened || 0;
-  return { total, opened, waiting: total - opened, cv: row.cv || 0 };
+    .get(weekAgo, weekAgo);
+  return {
+    ...scoped,
+    weekOpened: inbox.weekOpened || 0,
+    weekCv: inbox.weekCv || 0,
+    inboxSilent: inbox.silent || 0,
+  };
 }
 
 const recordOpenTx = db.transaction((trackId, ip, userAgent) => {
@@ -314,13 +344,11 @@ export function listTrackEvents(trackId) {
   const opens = sql.listOpens.all(trackId).map((row) => ({
     type: "open",
     at: row.at,
-    ip: row.ip,
     userAgent: row.user_agent,
   }));
   const cvs = sql.listCvs.all(trackId).map((row) => ({
     type: "cv",
     at: row.at,
-    ip: row.ip,
     userAgent: row.user_agent,
   }));
   return [...opens, ...cvs].sort((a, b) => String(a.at).localeCompare(String(b.at)));
