@@ -2,8 +2,12 @@ const PAGE = 40;
 const SETUP_KEY = "mailping-setup-later";
 const RULE_KEY = "mailping-compose-rule-seen";
 const PRODUCT_KEY = "mailping-product-rule-seen";
-const CV_BLOCK_MSG =
-  "CV veya özgeçmiş içeren mailleri Gmail (veya kullandığın posta) üzerinden gönder. MailPing yalnızca takip / hatırlatma için.";
+function composeRules() {
+  return window.mailpingComposeRules || {
+    mentionsCv: () => false,
+    CV_BLOCK_MSG: "Bu metin CV eki veya linki için uygun değil.",
+  };
+}
 
 const state = {
   tracks: [],
@@ -74,16 +78,10 @@ function gmailReady() {
   return Boolean(g && (g.oauthConnected || g.imapReady));
 }
 
-function mentionsCv(subject, body) {
-  const text = `${subject || ""}\n${body || ""}`.toLowerCase();
-  if (/\bcv\b/.test(text) || /(^|[^\w])cv['\u2019]/.test(text)) return true;
-  if (/özgeçmiş|özgecmis|resume|curriculum\s*vitae/.test(text)) return true;
-  return false;
-}
-
 function updateComposeCvWarn() {
   const warn = $("composeCvWarn");
   if (!warn || $("composeSheet").hidden) return;
+  const { mentionsCv, CV_BLOCK_MSG } = composeRules();
   const hit = mentionsCv($("composeSubject").value, $("composeBody").value);
   warn.hidden = !hit;
   warn.textContent = hit ? CV_BLOCK_MSG : "";
@@ -526,6 +524,7 @@ $("composeForm").addEventListener("submit", async (e) => {
   }
   const subject = $("composeSubject").value.trim();
   const text = $("composeBody").value.trim();
+  const { mentionsCv, CV_BLOCK_MSG } = composeRules();
   if (mentionsCv(subject, text)) {
     toast(CV_BLOCK_MSG);
     updateComposeCvWarn();

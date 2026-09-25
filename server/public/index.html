@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MailPing</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1a17'/%3E%3Cpath d='M8 12.2h16v10.2H8z' fill='none' stroke='%23fffdf8' stroke-width='1.6'/%3E%3Cpath d='M8 12.6 16 18l8-5.4' fill='none' stroke='%23fffdf8' stroke-width='1.6' stroke-linejoin='round'/%3E%3Ccircle cx='24.2' cy='8.6' r='3' fill='%23c4654a'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="/panel.css?v=track1" />
+  <link rel="stylesheet" href="/panel.css?v=track2" />
 </head>
 <body>
   <div class="app">
@@ -117,7 +117,7 @@
     <button id="closeCompose" class="icon" type="button">Kapat</button>
     <h2>Takip maili</h2>
     <p class="compose-rule" id="composeRule">
-      <strong>Kural:</strong> MailPing yalnızca <em>açıldı mı</em> takibi için. CV veya ilk başvuru metnini Gmail’den gönder; buradan kısa hatırlatma yaz. Metinde “CV” veya özgeçmiş geçerse gönderim engellenir.
+      <strong>Kural:</strong> MailPing yalnızca <em>açıldı mı</em> takibi için. CV dosyasını Gmail’den gönder; buradan hatırlatma yazabilirsin (“cv’mde sorun yok” gibi cümleler serbest). “CV ekte”, “ektedir”, CV linki/PDF eki gibi ifadeler engellenir.
     </p>
     <p id="composeCvWarn" class="compose-warn" hidden></p>
     <p class="lede">Birden fazla adresi virgülle ayır. Her alıcı ayrı takip edilir.</p>
@@ -139,6 +139,7 @@
   </aside>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/panel.js?v=track1"></script>
+  <script src="/compose-rules.js?v=track2"></script>
+  <script src="/panel.js?v=track2"></script>
 </body>
 </html>
