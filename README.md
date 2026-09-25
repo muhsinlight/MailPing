@@ -1,210 +1,207 @@
 # MailPing
 
-Kendi sunucunuzda çalışan **mail açıldı mı** takip paneli. CV’li ilk başvuruyu Gmail’den gönderirsiniz; kısa hatırlatma / takip mailini panelden atarsınız (görünmez piksel). İsterseniz **Windows / Mac masaüstü bildirimi** gelir.
+Kendi sunucunuzda çalışan **mail açıldı mı** takip paneli.
 
-Panel kilitlidir: VPS’e koysanız da mailler ve Gmail başkasının eline geçmez. Alıcıya giden okundu pikseli bilinçli olarak açıktır.
+- **İlk başvuru (CV dahil):** Gmail veya kullandığınız posta istemcisinden — gerçek PDF eki, normal metin.
+- **Hatırlatma / takip:** Panelden **Takip maili** — görünmez okundu pikseli eklenir; CV dosyası veya “ekte” tarzı ifadeler panelden gönderilmez.
 
-Panel: `http://localhost:3847/` → şifre ister.
+İsterseniz takip maili açıldığında **e-posta bildirimi** veya açık panelde **masaüstü bildirimi** alırsınız.
+
+Panel kilitlidir: VPS’e koysanız da başvuru listesi, Gmail bağlantısı ve SMTP ayarları başkasının eline geçmez. Alıcıya giden okundu pikseli bilinçli olarak herkese açıktır (takip böyle çalışır).
+
+Yerel geliştirme: [http://localhost:3847/](http://localhost:3847/) → panel şifresi.
+
+## Önerilen akış
+
+1. **Gmail’den** başvuru at (CV ekiyle). Kurulumda **Gmail bağla** → **Gönderilenleri çek**; kayıtlar listede görünür (**Takip yok** — piksel yok).
+2. Bir süre sessiz kalırsa panelden **Takip maili** yaz (kısa metin). Bu mailde piksel vardır → **Açtı / Sessiz**.
+3. Metinde “cv’mde sorun yok” gibi cümleler serbest; **“CV ekte”**, **“ektedir”**, CV linki/PDF eki gibi ifadeler panelden engellenir (CV’yi yine Gmail’den gönder).
 
 ## Ne yapar?
 
 | Özellik | Açıklama |
 |--------|----------|
-| **Mail açıldı** | Panelden giden takip mailine görünmez piksel eklenir. Alıcı görseli yükleyince sayılır. |
-| **Gmail çek** | Gönderilenleri panele alır (IMAP veya Google OAuth). Bu maillerde açıldı takibi yoktur (CV Gmail ekiyle gider). |
-| **Takip maili** | Panelden kısa hatırlatma; metinde CV / özgeçmiş geçerse gönderim engellenir. |
-| **Başvuru filtresi** | Tek kutu: tür (şirket / İK / staj…) + durum + arama. `info@firma.com` de başvurudur. |
-| **Sayfalama** | İlk 24 kayıt; aşağı kaydırınca devamı. |
-| **Canlı sinyal** | Açık panel: takip maili açılınca sistem bildirimi. |
-| **Gmail / Outlook rozeti** | Gönderilenler listesinde açıldı / CV durumu. |
+| **Mail açıldı** | Panelden giden takip mailine görünmez piksel. Alıcı HTML’de görseli yükleyince sayılır (ilk/son, sayı). |
+| **Gmail çek** | Gönderilenleri panele alır (IMAP + uygulama şifresi veya Google OAuth). Listeleme ve sınıflandırma; bu maillerde açılma takibi yok. |
+| **Takip maili** | SMTP ile gönderim; oturum çerezi gerekir. CV eki / takip linki yok. |
+| **Başvuru filtresi** | Durum (sessiz, açtı, takip yok…) + tür (İK, staj, kariyer…) + arama. |
+| **Liste** | Sayfalı liste; aşağı kaydırınca devamı yüklenir. |
+| **Canlı sinyal** | Panel açıkken periyodik kontrol; yeni açılışta toast / bildirim. |
+| **Okundu e-postası** | İsteğe bağlı: alıcı takip mailini açtığında size SMTP ile bildirim. |
+| **Şifremi unuttum** | Giriş ekranından; yeni panel şifresi SMTP ile `NOTIFY_TO` / `MAIL_TO` kutusuna gider. |
 
-**Desteklenen gönderim**
-
-| Kaynak | Nasıl |
-|--------|--------|
-| **Gmail** | İlk başvuru + CV eki (panel bunu göndermez) |
-| **Panel** | **Takip maili** — oturum çerezi ile `POST /api/send` (piksel, CV yok) |
-
-Alıcı herhangi bir HTML istemci olabilir. Şart: piksel URL’sinin yüklenmesi.
+Eski kurulumlardan kalan **CV indirme linki** (`/c/{id}`) hâlâ çalışabilir; yeni mailde panel artık CV linki üretmez.
 
 ## Nasıl çalışır?
 
-1. Gönderimden önce sunucu bir `track id` üretir.
-2. Takip mailinin gövdesine `https://SUNUCU/t/{id}.png` eklenir.
-3. Mail açılınca piksel istenir → `open_count` artar.
-4. Açık panel ~8 saniyede bir `/api/signals` bakar; yeni açılışta bildirim çıkar.
+1. Panel **Takip maili** gönderirken sunucu bir `track id` üretir.
+2. HTML gövdesine `https://SUNUCU/t/{id}.png` eklenir.
+3. Alıcı maili açıp görseli yüklediğinde piksel istenir → `open_count` artar.
+4. Açık panel ~8 saniyede bir `/api/signals` sorar; yeni olayda bildirim.
 
-**Önemli:** Piksel **internetten** gelir. Gerçek Gmail okundusu için `localhost` yetmez. VPS, [ngrok](https://ngrok.com) veya Cloudflare Tunnel kullanın; `.env` `PUBLIC_BASE_URL` ile eklenti URL’si **aynı** olsun.
+**Önemli:** Piksel **internetten** erişilebilir bir `PUBLIC_BASE_URL` ister. Sadece `localhost` ile gerçek Gmail okundusu test edilemez. Üretimde VPS + [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) veya ngrok kullanın.
 
-## Kilit (VPS için şart)
+## Kimlik ve kilit
 
-İki katman. Piksel ve CV **alıcı linki** kilit dışındadır; panel, CV dosyası, mail listesi, SMTP ve Gmail kilitlidir.
+Harici **API token yok**. Yalnızca panel şifresi + imzalı oturum çerezi (`PANEL_PASSWORD`, `AUTH_SECRET`).
 
 | Katman | Ne | Kim geçer |
 |--------|----|-----------|
-| **1. IP kapısı** (isteğe bağlı) | `ALLOWED_IPS` | Yalnız listedeki IP’ler login/API görür |
-| **2. Kimlik** | Panel şifresi + oturum çerezi | Giriş yaptıktan sonra tarayıcı |
+| **IP kapısı** (isteğe bağlı) | `ALLOWED_IPS` | Yalnız listedeki IP’ler login ve `/api/*` görür |
+| **Oturum** | Panel şifresi + çerez | Giriş sonrası tarayıcı |
 
-**Açık kalan uçlar** (alıcı / Gmail proxy):
+**Herkese açık uçlar** (alıcı / proxy):
 
 - `GET /t/{id}.png` — okundu pikseli
-- `GET /c/{id}` — CV indirme sayfası
-- `POST /c/{id}/file` — PDF indir (sayaç burada artar)
-- `GET /health` — canlı mı kontrolü (CV sızdırmaz)
-- `GET /api/gmail/callback` — Google OAuth dönüşü
+- `GET /c/{id}`, `POST /c/{id}/file` — eski CV takibi (varsa)
+- `GET /health`
+- `POST /api/recover` — şifre sıfırlama (rate limit)
+- `GET /api/gmail/callback` — OAuth dönüşü
 
-**Kilitli uçlar:** panel, `/api/cv`, `/api/cv/file`, `/api/tracks`, `/api/send`, `/api/signals`, Gmail bağla/çek/kopar.
+**Kilitli:** panel statikleri (login hariç), `/api/tracks`, `/api/send`, `/api/signals`, Gmail bağla/çek/kopar, `/api/cv` (eski API; panel UI kullanmaz).
 
-Panel şifresi ve cookie imzası `.env` içindedir (`PANEL_PASSWORD`, `AUTH_SECRET`). Bu dosyayı git’e koymayın.
+`ALLOWED_IPS` piksele uygulanmaz; uygulanırsa panel/API 403 alır ama alıcı pikseli yine yüklenir.
 
 ## Kurulum
 
 ```bash
 cd server
-copy .env.example .env
+copy .env.example .env   # Windows — Mac/Linux: cp
 npm install
 npm run keys
 ```
 
-`npm run keys` iki satır basar. Komut `server` klasöründe çalışır; proje kökünden de aynı komut yeter. Çıktıyı `server/.env` içine yapıştırın, sonra `npm start`.
+`npm run keys` `PANEL_PASSWORD` ve `AUTH_SECRET` üretir. `server/.env` içine yapıştırın, SMTP ve `PUBLIC_BASE_URL` doldurun, sonra:
 
-| Satır | Ne |
-|--------|-----|
-| `PANEL_PASSWORD` | Panel giriş şifresi. Bunu siz de seçebilirsiniz; uzun ve tahmin edilmesi zor olsun. |
-| `AUTH_SECRET` | Oturum çerezinin imzası. Rastgele kalsın. |
+```bash
+npm start
+```
 
-Sunucu bunları kendisi üretmez; biri boşsa açılmaz. `AUTH_SECRET` değişirse açık oturumlar kapanır.
+Proje kökünden: `npm run keys`, `npm start` (aynı iş).
 
-Tarayıcı: [http://localhost:3847/](http://localhost:3847/) → **Panel kilidi**. Şifre `.env` içindeki `PANEL_PASSWORD`.
-
-`.env` özeti:
+### `.env` özeti
 
 ```
-PUBLIC_BASE_URL=https://SIZIN-ACIK-URL
+PUBLIC_BASE_URL=https://mailping.ornek.com
 PANEL_PASSWORD=uzun-sifre
 AUTH_SECRET=uzun-rastgele
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
 SMTP_USER=...@gmail.com
 SMTP_PASS=uygulama-sifresi
+MAIL_FROM=...@gmail.com
+MAIL_FROM_NAME=Adın Soyadın
+
 NOTIFY_TO=...@gmail.com
 NOTIFY_WATCH_RECIPIENTS=*
+NOTIFY_FROM_NAME=MailPing
 ```
 
-| Değişken | Ne işe yarar |
-|----------|----------------|
-| `PUBLIC_BASE_URL` | Maile yazılan piksel/CV adresi. Eklenti URL’si ile aynı olsun. |
-| `PANEL_PASSWORD` | Panel girişi. |
-| `ALLOWED_IPS` | İsteğe bağlı. Örnek: `127.0.0.1,203.0.113.10` — yalnız panel. Piksel yine herkese açık. |
-| `TRUST_PROXY` | Nginx / Cloudflare arkasında `true`. Yoksa `X-Forwarded-For` sahte IP sayılır. |
-| `AUTH_SECRET` | Cookie imzası. |
+| Değişken | Açıklama |
+|----------|----------|
+| `PUBLIC_BASE_URL` | Piksel URL’sinin kökü; tünel/domain ile birebir aynı olmalı. |
+| `PANEL_PASSWORD` | Panel girişi; `recover` ile değişebilir (veritabanında saklanır). |
+| `AUTH_SECRET` | Çerez imzası; değişince oturumlar düşer. |
+| `MAIL_FROM_NAME` | Takip mailinde görünen gönderen adı. |
+| `TRUST_PROXY` | Nginx / Cloudflare arkasında `true`. |
+| `ALLOWED_IPS` | İsteğe bağlı panel IP listesi. |
 
-Gmail gönderilenlerini çekmek için SMTP hesabı Gmail + uygulama şifresi olsun (IMAP). İsteğe bağlı OAuth:
+Gmail **gönderilenler** için `SMTP_USER` / `SMTP_PASS` Gmail uygulama şifresi yeter (IMAP). İsteğe bağlı **Google ile bağla**:
 
 ```
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=https://SIZIN-ACIK-URL/api/gmail/callback
+GOOGLE_REDIRECT_URI=https://SIZIN-URL/api/gmail/callback
 ```
 
-### İlk kullanım
+### İlk kullanım (panel)
 
-1. Panele şifre ile girin.
-2. **PDF yükle** (CV).
-3. **Gönderilenleri çek** (veya Google ile bağla).
-4. **Mail gönder** ile yeni başvuru atın (CV kutusu isteğe bağlı).
-5. **Canlı** → bildirim izni verin.
+1. Şifre ile giriş.
+2. **Kurulum (Gmail)** → bağla veya IMAP ile **Gönderilenleri çek**.
+3. Gmail’den başvuru at; listede görünür.
+4. **Takip maili** ile hatırlatma gönder.
+5. İsteğe bağlı: kurulumda **Bildirimi aç**.
 
 ### Test maili
 
 ```bash
+cd server
 npm run send-test
 ```
 
-`PANEL_PASSWORD` ile panele giriş yapılır. Maili açıp görselleri yükleyin; panelde açıldı görünmeli.
+Panel şifresiyle oturum açılır, örnek takip maili gider. Maili açıp görselleri yükleyin; panelde **Açtı** görünmeli.
 
-## Coolify
+## Coolify + Cloudflare Tunnel
 
-Repo kökündeki `docker-compose.yml` iki servis kurar: MailPing ve Cloudflare tüneli. VPS’te 3847 portu açılmaz. İnternet sadece tünelden gelir. Veritabanı ve CV, `mailping-data` volume’unda kalır.
+Kök `docker-compose.yml`: **mailping** (3847, sadece iç ağ) + **cloudflared** (`TUNNEL_TOKEN`).
 
-1. Bu bilgisayarda, `server` klasöründe değil, tünelin kurulu olduğu makinede:
+1. Tünel token’ını Coolify’da `TUNNEL_TOKEN` olarak verin (repoya koymayın).
+2. Cloudflare’de hostname → `http://mailping:3847` (compose servis adı).
+3. Ortam: `PUBLIC_BASE_URL`, `PANEL_PASSWORD`, `AUTH_SECRET`, `SMTP_*`, isteğe bağlı `GOOGLE_*`, `ALLOWED_IPS`.
+4. Veri `mailping-data` volume’unda (`server/data` eşdeğeri). Eski DB taşıyorsanız volume’u doldurmadan önce kopyalayın.
 
-```bash
-cloudflared tunnel token mailping
-```
-
-Çıkan değeri Coolify ortam değişkenine `TUNNEL_TOKEN` diye yazın. Repoya koymayın.
-
-2. Cloudflare Zero Trust → Tunnels → `mailping` → Public Hostname: `mailping.muhsinlight.com.tr` → servis `http://mailping:3847`. Bu adres Compose ağıdır; sunucunun herkese açık IP’si değildir.
-
-3. Coolify → New Resource → Docker Compose. Kökteki `docker-compose.yml`. Environment Variables: `TUNNEL_TOKEN`, `PUBLIC_BASE_URL` (`https://mailping.muhsinlight.com.tr`), `PANEL_PASSWORD`, `AUTH_SECRET`, SMTP alanları.
-
-4. Deploy edin. Bu bilgisayardaki tünel sürecini kapatın. İkisi birden açıksa isteklerin yarısı hâlâ evdeki `localhost`a gider.
-
-`server/data` içindeki mevcut veritabanını taşıyacaksanız, volume’u doldurmadan önce dosyaları kopyalayın.
-
-İsteğe bağlı sıkılaştırma: `ALLOWED_IPS=ev.ip.adresiniz`. Ev IP’si değişirse hem panel hem eklenti 403 alır; piksel çalışmaya devam eder.
+Evde ayrı `cloudflared` çalışıyorsa üretim tüneliyle çakışmaz; ikisini aynı hostname’e bağlamayın.
 
 ## Chrome eklentisi
 
-Şu an **devre dışı** (sunucu API token kullanmıyor). Mail göndermek ve takip için panele girin.
+**Devre dışı.** Sunucu Bearer token kullanmaz; takip ve gönderim panelden.
 
-Eklenti yeniden açıldığında panel oturumu ile çalışacak şekilde güncellenecek. Masaüstü bildirimi için panelde **Canlı** yeterli:
+`extension/` klasörü gelecekte panel oturumu ile yeniden bağlanabilir. Bildirim için panel açık + tarayıcı bildirim izni yeterli.
 
-Eklenti **dakikada bir** sunucuyu sorar (gelecek sürüm). Mail açılınca veya CV inince:
+## API (özet)
 
-- **Windows** → Action Center
-- **Mac** → Bildirim Merkezi
+Tüm `/api/*` (health, recover, gmail callback, piksel/CV hariç) **oturum çerezi** ister.
 
-Chrome (veya eklentinin olduğu tarayıcı) çalışıyor olsun. Mac’te **Sistem Ayarları → Bildirimler → Chrome** açık olmalı.
-
-Eski “Mail Tracker” eklentisini kaldırın; ikisi çift piksel ekler.
-
-## API
-
-Tüm `/api/*` (login, Gmail callback, health hariç) **panel oturum çerezi** ister. Harici Bearer token yok.
-
-**Panelden mail gönder** (tarayıcıda giriş yaptıktan sonra):
+**Takip maili gönder:**
 
 ```http
 POST /api/send
 Cookie: mp=...
 Content-Type: application/json
 
-{ "toEmail": "alici@firma.com", "subject": "Merhaba", "text": "...", "source": "panel", "includeCv": false }
+{
+  "toEmail": "ik@firma.com",
+  "subject": "Başvurum hakkında",
+  "text": "Merhaba, kısa bir hatırlatma…",
+  "source": "panel"
+}
 ```
 
-**Canlı sinyal** (aynı oturum):
+`includeCv: true` veya metinde CV **gönderim/ek** kalıpları → `400` ve açıklayıcı hata.
+
+**Canlı sinyal:**
 
 ```http
 GET /api/signals?after=2026-09-24T09:00:00.000Z
 ```
 
-**Gmail** (panel oturumu)
-
-- `GET /api/gmail/status`
-- `POST /api/gmail/sync` — OAuth varsa API, yoksa IMAP
-- `GET /api/gmail/connect` — Google OAuth
-
-Okundu e-postası: `NOTIFY_WATCH_RECIPIENTS=*` veya `a@x.com,b@y.com`.
+**Gmail:** `GET /api/gmail/status`, `POST /api/gmail/sync`, `GET /api/gmail/connect`, `POST /api/gmail/disconnect`.
 
 ## Proje yapısı
 
-- `server/` — Express, SQLite, piksel, CV, Gmail, panel
-  - `src/auth.js` — şifre, session cookie
-  - `src/security.js` — IP kapısı, güvenlik başlıkları, rate limit
-- `extension/` — Gmail / Outlook + masaüstü bildirimi
-- `server/data/` — veritabanı ve CV PDF (git’te yok)
+```
+MailPing/
+├── docker-compose.yml      # VPS: app + cloudflared
+├── server/
+│   ├── src/
+│   │   ├── index.js        # HTTP, piksel, API
+│   │   ├── auth.js         # şifre, oturum
+│   │   ├── email.js        # SMTP, piksel, bildirim
+│   │   ├── compose-rules.js # takip maili CV-ek engeli
+│   │   ├── gmail.js        # OAuth / IMAP sync
+│   │   ├── db.js           # SQLite
+│   │   └── security.js     # IP, rate limit, CSP
+│   ├── public/             # panel, login, compose-rules.js
+│   └── data/               # git’te yok — DB + eski CV dosyası
+└── extension/              # şimdilik kullanılmıyor
+```
 
 ## Sınırlamalar
 
-- Metin-only mail veya kapalı görseller → okundu gelmeyebilir.
-- Kurumsal filtreler harici URL’yi kesebilir.
-- Gmail görseli proxy’ler; public URL şart.
-- Gmail’den çekilen **eski** mailler listelenir; açıldı/CV takibi yalnız piksel/link eklenenlerde olur.
-- Canlı sinyal için Chrome’un çalışması (eklenti) veya panelin açık + bildirim izni gerekir.
-- `gmail.readonly` OAuth yayın için Google doğrulaması ister; geliştirmede test kullanıcıları yeter.
-- Tek kiracı: bir sunucu = bir panel = bir CV. Aynı VPS’i iki kişi paylaşıyorsa birbirinin verisini görür; ayrı kurulum veya ayrı `data/` kullanın.
-- `ALLOWED_IPS` piksele uygulanmaz. Uygulanırsa Gmail okundusu kırılır.
-
-## Chrome Web Store (özet)
-
-Gmail erişen eklentiler incelenir. Formda toplanan veriyi dürüst yazın (açılış zamanı, IP, user-agent). Self-hosted: kullanıcı sunucu URL’sini ve API token’ı options’tan girer. VPS domain’i `optional_host_permissions` ile istenir; `host_permissions` içinde localhost hazırdır.
+- Düz metin mail veya kapalı görseller → okundu sayılmayabilir.
+- Kurumsal filtreler harici piksel URL’sini kesebilir.
+- Gmail görseli proxy’ler; `PUBLIC_BASE_URL` her zaman erişilebilir olmalı.
+- Gmail’den çekilen mailler **takip yok**; açılma yalnız panelden giden takip maillerinde.
+- Tek kiracı: bir kurulum = bir kullanıcı verisi. Paylaşımlı VPS’te ayrı instance veya volume.
+- `gmail.readonly` OAuth mağaza yayınında Google doğrulaması gerekebilir; test kullanıcıları geliştirme için yeterli.
